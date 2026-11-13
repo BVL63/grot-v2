@@ -3,7 +3,7 @@ name: GROT 2.0 — independent GitHub Pages
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 3 * * *'
+   - cron: '*/30 * * * *'
 
 permissions:
   contents: read
