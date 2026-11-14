@@ -183,9 +183,67 @@ export function calculateYearTotals(view){
  });
  return {byStaff,months,total:byStaff.reduce((sum,person)=>sum+person.total,0)};
 }
-export function renderUnifiedYearTable(view){
+
+/** Отдельный месяц раскрывается в календарные дни без изменения данных отпусков. */
+export function calculateDailyAbsence(view,month){
+ const m=Number(month);
+ if(!Number.isInteger(m)||m<0||m>11)throw new RangeError('Неверный месяц');
+ const count=new Date(Date.UTC(view.year,m+1,0)).getUTCDate();
+ const dates=Array.from({length:count},(_,i)=>
+  String(view.year)+'-'+String(m+1).padStart(2,'0')+'-'+String(i+1).padStart(2,'0'));
+ const counts=dates.map(date=>view.rows.reduce((n,row)=>
+  n+(row.periods.some(rec=>!rec.deleted&&rec.period?.start<=date&&rec.period?.end>=date)?1:0),0));
+ return {dates,counts};
+}
+function renderedMonthHeader(month,expanded=false){
+ return '<button type="button" class="month-expand-toggle" data-expand-month="'+month+
+  '" aria-expanded="'+expanded+'" title="'+(expanded?'Свернуть':'Раскрыть по дням')+
+  ' месяц">'+esc(MONTHS[month])+' '+(expanded?'▴':'▾')+'</button>';
+}
+function renderDetailedYearTable(view,month){
+ const daily=calculateDailyAbsence(view,month);
  const totals=calculateYearTotals(view);
- const header=view.months.map(m=>'<th scope="col">'+esc(m)+'</th>').join('');
+ const header=MONTHS.map((label,m)=>m===month
+  ?'<th class="expanded-month-heading" colspan="'+daily.dates.length+'">'+renderedMonthHeader(m,true)+'</th>'
+  :'<th class="compact-month-heading">'+renderedMonthHeader(m)+'</th>').join('');
+ const subheader=MONTHS.map((label,m)=>m===month
+  ?daily.dates.map((date,i)=>'<th class="daily-date-heading" title="'+dateText(date)+'">'+(i+1)+'</th>').join('')
+  :'<th class="collapsed-month-subheading" aria-hidden="true"></th>').join('');
+ const body=view.rows.map((row,index)=>{
+  const dayCells=MONTHS.map((label,m)=>{
+   if(m!==month){
+    const segments=row.months[m];
+    if(!segments.length)return '<td class="empty-month detailed-collapsed-month"></td>';
+    const periods=row.periods.filter(rec=>!rec.deleted&&segments.some(segment=>segment.id===rec.id));
+    return '<td class="detailed-collapsed-month">'+periods.map(rec=>
+     '<button type="button" class="detailed-compact-period" data-period-id="'+esc(rec.id)+
+     '" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+'">'+
+     dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</button>').join('')+'</td>';
+   }
+   return daily.dates.map(date=>{
+    const rec=row.periods.find(item=>!item.deleted&&item.period?.start<=date&&item.period?.end>=date);
+    return '<td class="daily-day-cell'+(rec?' daily-on-leave':'')+'"'+
+      (rec?' title="'+esc(row.name)+' · '+dateText(date)+' · отпуск"':'')+'>'+
+      (rec?'<button type="button" class="daily-day-button" data-period-id="'+esc(rec.id)+
+       '" aria-label="Отпуск '+esc(row.name)+' '+dateText(date)+'">●</button>':'')+'</td>';
+   }).join('');
+  }).join('');
+  return '<tr class="daily-employee-row"><th scope="row" title="'+esc(row.name)+'">'+
+   esc(row.shortName||shortStaffName(row))+'</th>'+dayCells+
+   '<td class="employee-year-total">'+(totals.byStaff[index].total||'')+'</td></tr>';
+ }).join('');
+ const footer=MONTHS.map((label,m)=>m===month
+  ?daily.counts.map(count=>'<td class="daily-total-cell">'+(count||'')+'</td>').join('')
+  :'<td class="monthly-total-cell">'+(totals.months[m]||'')+'</td>').join('');
+ return '<table class="annual-table grot-unified-year grot-daily-expanded"><thead><tr><th scope="col" rowspan="2">Сотрудник</th>'+
+  header+'<th scope="col" rowspan="2" class="year-total-header">Всего дней</th></tr><tr>'+subheader+
+  '</tr></thead><tbody>'+body+'</tbody><tfoot><tr class="year-totals-row"><th scope="row">В отпуске, чел.</th>'+
+  footer+'<td class="year-grand-total">'+(totals.total||'')+'</td></tr></tfoot></table>';
+}
+export function renderUnifiedYearTable(view,{expandedMonth=null}={}){
+ if(expandedMonth!==null)return renderDetailedYearTable(view,Number(expandedMonth));
+ const totals=calculateYearTotals(view);
+ const header=view.months.map((m,i)=>'<th scope="col">'+renderedMonthHeader(i)+'</th>').join('');
  const body=view.rows.map((row,index)=>{
   const lanes=monthLanes(row);
   const sum=totals.byStaff[index].total;
