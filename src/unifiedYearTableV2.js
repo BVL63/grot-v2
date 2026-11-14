@@ -86,6 +86,17 @@ function monthLanes(row){
  }
  return lanes.length?lanes:[[]];
 }
+/** Отступы в долях ширины объединённых месячных ячеек.
+ * У каждого месяца одинаковая ширина, независимо от числа дней.
+ */
+export function proportionalMonthOffsets(start,end,span){
+ const firstDay=Number(start.slice(8,10)),lastDay=Number(end.slice(8,10));
+ const firstLength=new Date(Date.UTC(Number(start.slice(0,4)),Number(start.slice(5,7)),0)).getUTCDate();
+ const lastLength=new Date(Date.UTC(Number(end.slice(0,4)),Number(end.slice(5,7)),0)).getUTCDate();
+ const total=Math.max(1,Number(span));
+ return {left:Number((((firstDay-1)/firstLength)/total*100).toFixed(4)),
+  right:Number((((lastLength-lastDay)/lastLength)/total*100).toFixed(4))};
+}
 function renderLane(lane){
  const starts=new Map(lane.map(entry=>[entry.first,entry]));
  const cells=[];
@@ -97,10 +108,15 @@ function renderLane(lane){
   const dates=span>1
    ?'<span>'+dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</span>'
    :'<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>';
+  const offsets=span>1?proportionalMonthOffsets(rec.period.start,rec.period.end,span):null;
+  const content=offsets
+   ?'<span class="proportional-fill" aria-hidden="true" style="left:'+offsets.left+'%;right:'+offsets.right+'%"></span>'+
+    '<span class="proportional-period-label">'+dates+'</span>'
+   :dates;
   cells.push('<td'+(span>1?' colspan="'+span+'" class="period-span"':'')+'>'+
-   '<button type="button" class="vacation-period '+(span>1?'multi-month':'single-month')+
+   '<button type="button" class="vacation-period '+(span>1?'multi-month proportional-period':'single-month')+
    '" data-period-id="'+esc(rec.id)+'" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+'">'+
-   dates+'<strong>'+duration(rec.period.start,rec.period.end)+' дн.</strong></button></td>');
+   content+'<strong>'+duration(rec.period.start,rec.period.end)+' дн.</strong></button></td>');
   month+=span;
  }
  return cells.join('');
