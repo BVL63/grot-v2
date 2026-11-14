@@ -66,3 +66,20 @@ export function upsertStaff(staff,entry){
   return staff.map(x=>String(x.id)===String(entry.id)?{...x,...next}:x);
  return [...staff,next];
 }
+
+/** All unassigned staff, including those with IDs that no longer exist in structure. */
+export function unassignedStaff(staff,nodes,{includeDismissed=true}={}){
+ const ids=new Set(nodes.map(n=>String(n.id)));
+ return staff.filter(s=>(includeDismissed||!s.dismissed)&&(!s.structureId||!ids.has(String(s.structureId))));
+}
+/** Assign a selected set to ONE structure node, leaving all other fields untouched. */
+export function assignStaffToStructure(staff,nodes,staffIds,structureId){
+ const node=nodes.find(n=>String(n.id)===String(structureId));
+ if(!node)throw new Error('Подразделение не найдено');
+ const selected=new Set(staffIds.map(String));
+ if(!selected.size)throw new Error('Не выбраны сотрудники');
+ const known=new Set(staff.map(s=>String(s.id)));
+ for(const id of selected)if(!known.has(id))throw new Error('Не найден сотрудник '+id);
+ const department=structurePath(nodes,node.id);
+ return staff.map(s=>selected.has(String(s.id))?{...s,structureId:node.id,department}:s);
+}
