@@ -85,3 +85,31 @@ test('У переходящих отпусков есть обе формы да
  assert.match(html,/class="period-date-wide">01\.08\.27 – 20\.09\.27/);
  assert.equal((html.match(/data-period-id="/g)||[]).length,2);
 });
+
+import {calculateYearTotals} from '../src/unifiedYearTableV2.js';
+test('Итоговый столбец и строка: суммы по месяцам и общий итог',()=>{
+ const people=[{id:'1',name:'Иванов И.И.'},{id:'2',name:'Петров П.П.'},{id:'3',name:'Сидоров С.С.'}];
+ const items=[
+  rec('a','2027-04-30','2027-05-03'),
+  {id:'b',year:2027,staffId:'2',period:{start:'2027-05-10',end:'2027-05-14'}},
+  {id:'c',year:2026,staffId:'3',period:{start:'2026-05-01',end:'2026-05-10'}}
+ ];
+ const view=buildUnifiedYearView(2027,items,people);
+ const totals=calculateYearTotals(view);
+ assert.equal(totals.months[3],1);
+ assert.equal(totals.months[4],8); // 1–3 мая: 2 дня (1 мая исключаем), плюс 5
+ assert.equal(totals.total,9);
+ assert.deepEqual(totals.byStaff.map(p=>p.total),[4,5,0]);
+ const html=renderUnifiedYearTable(view);
+ assert.match(html,/Всего дней/);
+ assert.match(html,/<tr class="year-totals-row"><th scope="row">Итого<\/th>/);
+ assert.match(html,/<td class="year-grand-total">9<\/td>/);
+ assert.equal((html.match(/class="employee-year-total"/g)||[]).length,3);
+});
+test('Итог за сотрудника выводится один раз при двух дорожках отпусков',()=>{
+ const view=buildUnifiedYearView(2027,[rec('one','2027-06-01','2027-07-10'),rec('two','2027-07-15','2027-08-15')],staff);
+ const html=renderUnifiedYearTable(view);
+ assert.match(html,/rowspan="2"/);
+ assert.equal((html.match(/class="employee-year-total"/g)||[]).length,1);
+ assert.equal(calculateYearTotals(view).total,72);
+});
