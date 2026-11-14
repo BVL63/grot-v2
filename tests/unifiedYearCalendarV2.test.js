@@ -132,3 +132,11 @@ test('Переходящий отпуск учитывает сотрудник�
  assert.equal(totals.months[4],1);
  assert.equal(totals.total,3);
 });
+
+test('Нули в годовых итогах не выводятся',()=>{
+ const view=buildUnifiedYearView(2027,[],[{id:'empty',name:'Пустов П.П.'}]);
+ const html=renderUnifiedYearTable(view);
+ assert.match(html,/<td class="employee-year-total" rowspan="1"><\/td>/);
+ assert.equal((html.match(/Сотрудников в отпуске: 0">0<\/td>/g)||[]).length,0);
+ assert.match(html,/<td class="year-grand-total"[^>]*><\/td>/);
+});
