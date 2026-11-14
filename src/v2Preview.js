@@ -5,7 +5,7 @@ import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
-import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure} from './organizationDirectoryV2.js';
+import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
 import './v2Preview.css';
 
@@ -31,6 +31,7 @@ let records=[
  {id:'demo-3',year:2027,chartId:null,staffId:'2',staffName:staff[1].name,period:{start:'2027-08-10',end:'2027-08-23'},audit:[]}
 ];
 let year=2027,selected=null,dirty=false,loadedSource='Демонстрационные данные';
+let selectedGraphId='';
 let originalImport=null,importReport='',historyReview=null;
 let localSaveStatus='Локальное сохранение не проверено';
 function persistDraft(){
@@ -61,6 +62,9 @@ function dateFmt(s){return displayDate(s)||'—';}
 function draw(){
  const years=[...new Set([...baseYears,...records.map(r=>Number(r.year)).filter(Number.isInteger)])].sort((a,b)=>a-b);
  const active=records.filter(r=>!r.deleted);
+ if(selectedGraphId&&!structure.some(n=>String(n.id)===String(selectedGraphId)))selectedGraphId='';
+ const graph=selectDepartmentGraph(staff,active,structure,selectedGraphId);
+ const chartOptions=structureRows(structure).map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(n.id)===selectedGraphId?' selected':'')+'>'+escapeHtml('— '.repeat(n.depth)+n.name)+'</option>').join('');
  root.innerHTML=`
   <header class="v2-header">
    <div class="v2-heading"><strong>ГРАФИК ОТПУСКОВ</strong><small>ГРОТ 2.0 · тестовая версия</small></div>
@@ -75,6 +79,9 @@ function draw(){
   </header>
   <main>
    <p class="warning"><strong>ГРОТ 2.0 — тестовый режим.</strong> Данные автоматически сохраняются на этом устройстве в браузере. Для резервной копии используйте «Сохранить данные». Основной ГРОТ не затрагивается.</p>
+   <div class="chart-selector"><label>График <select id="v2-chart"><option value="">Общий график</option>${chartOptions}</select></label>
+    <span class="muted">Сотрудников: ${graph.staff.length} · Периодов за ${year} год: ${graph.records.filter(r=>Number(r.year)===year).length}</span>
+    <span class="muted">Изменения отображаются в общем графике автоматически</span></div>
    <div class="toolbar">
     <button id="v2-structure">Структура</button>
     <button id="v2-staff">Сотрудники</button>
@@ -88,7 +95,7 @@ function draw(){
    <input id="v2-file" type="file" accept=".json,application/json" hidden>
    <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
    ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
-   <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,active,staff))}</div>
+   <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,graph.records,graph.staff))}</div>
   </main>
   <div id="v2-period-menu" class="period-context-menu" role="menu" aria-label="Действия с периодом" hidden>
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
@@ -138,7 +145,7 @@ function draw(){
   <dialog id="v2-dialog">
    <form method="dialog" id="v2-editor">
     <h2 id="v2-dialog-title">Отпуск</h2>
-    <label>Сотрудник <select name="staffId" required>${staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
+    <label>Сотрудник <select name="staffId" required>${graph.staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
     <div class="calendar-panel">
      <div class="calendar-bar">
       <button type="button" id="v2-calendar-prev" aria-label="Предыдущий месяц">‹</button>
@@ -177,6 +184,7 @@ function draw(){
   </dialog>
   <footer>ГРОТ 2.0 — демонстрация · основной график не затронут</footer>`;
  q('#v2-year').onchange=e=>{year=Number(e.target.value);selected=null;persistDraft();draw();};
+ q('#v2-chart').onchange=e=>{selectedGraphId=e.target.value;selected=null;draw();};
  q('#v2-add').onclick=()=>openEditor(null);
  q('#v2-structure').onclick=()=>openDirectory('structure');
  q('#v2-staff').onclick=()=>openDirectory('staff');
@@ -498,7 +506,7 @@ function openEditor(rec,{deleting=false}={}){
  const form=q('#v2-editor');
  q('#v2-dialog-title').textContent=deleting?'Удалить период':rec?'Изменить период':'Добавить период';
  q('#v2-save').hidden=deleting;
- form.elements.staffId.value=rec?.staffId||staff[0]?.id||'';
+ form.elements.staffId.value=rec?.staffId||q('#v2-chart').value&&selectDepartmentGraph(staff,records,structure,selectedGraphId).staff[0]?.id||staff[0]?.id||'';
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
@@ -646,7 +654,7 @@ async function importJson(e){
   historyReview=inspected.bundledHistoryReview||null;
   loadedSource='Проверен файл: '+file.name;
   if(!records.some(r=>Number(r.year)===year))year=records[0]?.year||2027;
-  dirty=false;selected=null;persistDraft();draw();
+  dirty=false;selected=null;selectedGraphId='';persistDraft();draw();
  }catch(err){alert('Импорт не выполнен: '+err.message);}
 }
 function downloadJson(data,name){
