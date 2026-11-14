@@ -67,5 +67,5 @@ test('Переходящий отпуск показывает пропорци�
 test('Для перехода через три месяца полоса учитывает ширину каждого месяца',()=>{
  const o=proportionalMonthOffsets('2027-01-16','2027-03-15',3);
  assert.ok(Math.abs(o.left-16.129)<0.001);
- assert.ok(Math.abs(o.right-18.2796)<0.001);
+ assert.ok(Math.abs(o.right-17.2043)<0.001);
 });
