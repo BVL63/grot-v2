@@ -72,3 +72,23 @@ test('Начальник отдела включается в состав ав�
  assert.equal(staffForStructure(assigned,nodes,'office').length,3);
  assert.equal(people[0].structureId,undefined);
 });
+ 
+import {fillMissingStructureCodes} from '../src/organizationDirectoryV2.js';
+test('Новые коды структуры создаются по иерархии, старые не меняются',()=>{
+ const nodes=[
+  {id:'root',name:'Поликлиника',code:'01',parentId:null},
+  {id:'a',name:'Подразделение № 3',code:'01.03',parentId:'root'},
+  {id:'b',name:'Подразделение № 4',code:'01.04',parentId:'root'},
+  {id:'c',name:'Терапевтическое отделение № 3',parentId:'b'},
+  {id:'d',name:'Хозяйственный отдел',parentId:'b'},
+  {id:'e',name:'Водители',parentId:'d'},
+  {id:'f',name:'Санитарки',parentId:'b'}
+ ];
+ const numbered=fillMissingStructureCodes(nodes);
+ assert.deepEqual(numbered.map(x=>x.code),['01','01.03','01.04','01.04.01','01.04.02','01.04.02.01','01.04.03']);
+ assert.equal(nodes[3].code,undefined);
+ assert.deepEqual(fillMissingStructureCodes(numbered),numbered);
+ const next=upsertStructure(numbered,{id:'g',name:'Новый отдел',parentId:'b'});
+ assert.equal(next.find(x=>x.id==='g').code,'01.04.04');
+ assert.equal(next.find(x=>x.id==='d').code,'01.04.02');
+});
