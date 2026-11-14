@@ -21,3 +21,17 @@ test('Нельзя скрывать второй период объединён
  assert.match(html,/data-period-id="c"/);
  assert.match(html,/data-period-id="d"/);
 });
+
+test('Королёва: при соседних переходящих отпусках дни не дублируются',()=>{
+ const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[
+  rec('feb-mar','2027-02-15','2027-03-01'),
+  rec('mar-apr','2027-03-29','2027-04-09')
+ ],staff));
+ assert.doesNotMatch(html,/colspan="2" class="period-span"/);
+ assert.match(html,/15\.02\.27 – 01\.03\.27/);
+ assert.match(html,/29\.03\.27 – 09\.04\.27/);
+ assert.match(html,/↳ до 01\.03\.27/);
+ assert.match(html,/↳ до 09\.04\.27/);
+ assert.equal((html.match(/15 дн\./g)||[]).length,1);
+ assert.equal((html.match(/12 дн\./g)||[]).length,1);
+});
