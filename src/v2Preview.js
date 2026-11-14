@@ -40,7 +40,7 @@ function draw(){
    <div class="toolbar">
     <button id="v2-add">Добавить период</button>
     <button id="v2-import">Загрузить JSON для просмотра</button>
-    <button id="v2-export">Скачать JSON</button>
+    <button id="v2-export">Сохранить данные</button>
     <button id="v2-audit-open" type="button">Журнал изменений</button>
     <button id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
     <span class="muted">${escapeHtml(loadedSource)} · ${dirty?'есть несохранённые изменения':'нет изменений'}</span>
