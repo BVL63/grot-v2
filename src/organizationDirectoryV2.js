@@ -123,3 +123,13 @@ export function assignStaffToStructure(staff,nodes,staffIds,structureId){
  const department=structurePath(nodes,node.id);
  return staff.map(s=>selected.has(String(s.id))?{...s,structureId:node.id,department}:s);
 }
+
+/** График подразделения — представление единого набора периодов, не копия данных. */
+export function selectDepartmentGraph(staff,records,nodes,selectedId){
+ if(selectedId==null||selectedId==='')return {staff:[...staff],records:[...records]};
+ const node=nodes.find(n=>String(n.id)===String(selectedId));
+ if(!node)throw new Error('Выбранное подразделение не найдено');
+ const members=staffForStructure(staff,nodes,node.id);
+ const memberIds=new Set(members.map(p=>String(p.id)));
+ return {staff:members,records:records.filter(r=>r.staffId!=null&&memberIds.has(String(r.staffId)))};
+}
