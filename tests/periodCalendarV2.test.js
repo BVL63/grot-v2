@@ -23,3 +23,22 @@ test('Неполный период не показывает ложное ко�
  assert.equal(inclusiveCalendarDays('2027-06-05',''),0);
  assert.equal(inclusiveCalendarDays('2027-06-10','2027-06-05'),0);
 });
+
+import {vacationDays,endDateForDays,isVacationHoliday} from '../src/periodCalendarV2.js';
+test('Ввод дней автоматически рассчитывает конец отпуска',()=>{
+ assert.equal(endDateForDays('2027-02-08',12),'2027-02-19');
+ assert.equal(endDateForDays('2027-02-15',14),'2027-03-01');
+ assert.equal(vacationDays('2027-02-15','2027-03-01'),14);
+ assert.equal(endDateForDays('2027-12-28',14),'2028-01-18');
+});
+test('Праздники исключаются, обычные выходные учитываются',()=>{
+ assert.equal(isVacationHoliday('2027-02-23'),true);
+ assert.equal(isVacationHoliday('2027-02-22'),false);
+ assert.equal(vacationDays('2027-02-20','2027-02-24'),4);
+ assert.equal(endDateForDays('2027-02-20',4),'2027-02-24');
+});
+test('Недопустимое число дней не приводит к неверной дате',()=>{
+ assert.throws(()=>endDateForDays('2027-02-01',0));
+ assert.throws(()=>endDateForDays('2027-02-01',-2));
+ assert.throws(()=>endDateForDays('',12));
+});
