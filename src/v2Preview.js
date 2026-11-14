@@ -139,13 +139,13 @@ function draw(){
    clearTimeout(touchTimer);touchStart=null;
   }
  });
- const endTouch=()=>{clearTimeout(touchTimer);touchStart=null;};
+ const endTouch=()=>{clearTimeout(touchTimer);touchStart=null;if(ignoreClick)setTimeout(()=>{ignoreClick=false;},350);};
  table.addEventListener('pointerup',endTouch);
  table.addEventListener('pointercancel',endTouch);
  table.addEventListener('scroll',hideMenu,{passive:true});
  q('#v2-menu-edit').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec);};
  q('#v2-menu-delete').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec,{deleting:true});};
- root.addEventListener('click',e=>{if(!e.target.closest('#v2-period-menu')&&!e.target.closest('[data-period-id]'))hideMenu();});
+ root.onclick=e=>{if(!e.target.closest('#v2-period-menu')&&!e.target.closest('[data-period-id]'))hideMenu();};
  menu.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();e.preventDefault();}});
  
 }
