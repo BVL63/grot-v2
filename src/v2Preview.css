@@ -89,3 +89,27 @@
 .v2-version span{font-size:11px}
 .v2-header-controls label{white-space:nowrap}
 @media(max-width:700px){.v2-header{align-items:flex-start;flex-wrap:wrap}.v2-header-controls{justify-content:space-between;width:100%}.v2-version{padding:6px 10px}}
+
+
+/* Двухмесячный календарь в карточке периода */
+#v2-dialog{width:min(750px,96vw);max-height:92vh;overflow:auto}
+#v2-editor{gap:12px}
+.calendar-panel{border:1px solid #d3deeb;border-radius:9px;padding:12px;background:#f6f9fd}
+.calendar-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.calendar-bar strong{font-size:14px;color:#24415f;text-align:center}
+.calendar-bar button{min-width:38px;font-size:22px;padding:3px 9px}
+.calendar-months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.calendar-month{margin:0;min-width:0}
+.calendar-month h3{text-align:center;margin:0 0 9px;font-size:16px}
+.calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.calendar-weekday{font-size:11px;color:#52677e;text-align:center;padding:4px 0}
+.calendar-blank{height:31px}
+#v2-editor .calendar-day{min-width:0;height:34px;border:1px solid transparent;border-radius:5px;background:white;color:#162e4b;font-size:12px;padding:1px 0;cursor:pointer}
+#v2-editor .calendar-day:hover{border-color:#2964a4;background:#dceafc}
+#v2-editor .calendar-day.in-range{background:#d7e8fc}
+#v2-editor .calendar-day.range-start,#v2-editor .calendar-day.range-end{background:#225d9a;color:#fff;font-weight:700}
+#v2-editor .calendar-day.range-start:hover,#v2-editor .calendar-day.range-end:hover{background:#1c4c80}
+.calendar-summary{text-align:center;font-size:13px;font-weight:600;color:#24415f;margin:12px 0 0;min-height:17px}
+.calendar-date-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.calendar-date-fields input{width:100%;min-width:0}
+@media(max-width:570px){.calendar-months{grid-template-columns:1fr;gap:12px}.calendar-day{height:38px!important}.calendar-panel{padding:8px}}
