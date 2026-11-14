@@ -155,3 +155,28 @@
 .grot-unified-year tbody tr.vacation-lane.lane-middle td{
  border-bottom:0;
 }
+
+
+/* Справочники: компактная таблица с прокруткой, без изменения основной таблицы отпусков. */
+#v2-directory-dialog{width:min(1000px,96vw);max-height:88vh;overflow:hidden}
+.directory-heading{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.directory-heading h2{margin:0}
+.directory-toolbar{display:flex;gap:10px;align-items:center;margin:12px 0}
+.directory-toolbar input{min-width:150px;flex:1;padding:9px;border:1px solid #bbc8d5;border-radius:5px}
+.directory-content{max-height:66vh;overflow:auto;border:1px solid #d7dfe9;border-radius:6px}
+.directory-table{width:100%;border-collapse:collapse;font-size:13px}
+.directory-table th{position:sticky;top:0;z-index:1;background:#edf2f8}
+.directory-table td,.directory-table th{padding:8px 10px;text-align:left;white-space:normal}
+.directory-table td:first-child{white-space:nowrap}
+.directory-table tr:hover td{background:#f4f8ff}
+.directory-table button{padding:6px 10px}
+#v2-directory-editor{width:min(590px,96vw);max-height:90vh;overflow:auto}
+#v2-directory-fields{display:grid;gap:12px}
+#v2-directory-fields>label{display:flex;flex-direction:column;gap:5px}
+#v2-directory-fields input,#v2-directory-fields select{width:100%}
+.directory-name-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.directory-name-fields label{display:flex;flex-direction:column;gap:5px}
+.directory-checkbox{display:flex!important;flex-direction:row!important;align-items:center;gap:8px}
+.directory-checkbox input{width:auto!important}
+#v2-directory-error{color:#a02727;min-height:1em}
+@media(max-width:640px){.directory-name-fields{grid-template-columns:1fr}.directory-content{max-height:60vh}.directory-table{font-size:12px}}
