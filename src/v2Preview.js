@@ -5,7 +5,7 @@ import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
-import {validateStructure,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff} from './organizationDirectoryV2.js';
+import {validateStructure,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure} from './organizationDirectoryV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -99,6 +99,8 @@ function draw(){
     <input id="v2-directory-search" type="search" placeholder="Поиск по названию или ФИО" aria-label="Поиск">
     <button type="button" id="v2-directory-add">Добавить</button>
     <button type="button" id="v2-directory-load">Загрузить структуру</button>
+    <button type="button" id="v2-directory-unassigned">Без подразделения</button>
+    <button type="button" id="v2-directory-assign" hidden>Назначить выбранных</button>
     <input id="v2-directory-file" type="file" accept=".json,application/json" hidden>
     <span id="v2-directory-count" class="muted"></span>
    </div>
@@ -168,6 +170,8 @@ function draw(){
  q('#v2-directory-close').onclick=()=>q('#v2-directory-dialog').close();
  q('#v2-directory-search').oninput=renderDirectory;
  q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
+ q('#v2-directory-unassigned').onclick=()=>{directoryUnassignedOnly=!directoryUnassignedOnly;renderDirectory();};
+ q('#v2-directory-assign').onclick=bulkAssignDirectory;
  q('#v2-directory-load').onclick=()=>q('#v2-directory-file').click();
  q('#v2-directory-file').onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
@@ -254,16 +258,23 @@ function draw(){
  
 }
 let directoryMode='structure';
+let directoryUnassignedOnly=false;
 function openDirectory(mode){
  directoryMode=mode;
+ directoryUnassignedOnly=false;
  q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
  q('#v2-directory-load').hidden=mode!=='structure';
+ q('#v2-directory-unassigned').hidden=mode!=='staff';
+ q('#v2-directory-assign').hidden=mode!=='staff';
  q('#v2-directory-search').value='';
  renderDirectory();
  q('#v2-directory-dialog').showModal();
 }
 function renderDirectory(){
  const term=q('#v2-directory-search').value.toLocaleLowerCase('ru').replace(/ё/g,'е');
+ const unassigned=unassignedStaff(staff,structure);
+ q('#v2-directory-unassigned').textContent='Без подразделения: '+unassigned.length+(directoryUnassignedOnly?' ✓':'');
+ q('#v2-directory-unassigned').setAttribute('aria-pressed',String(directoryUnassignedOnly));
  const normalized=value=>String(value||'').toLocaleLowerCase('ru').replace(/ё/g,'е');
  let rows=[];
  if(directoryMode==='structure'){
@@ -274,20 +285,46 @@ function renderDirectory(){
     '<td>'+staffForStructure(staff,structure,n.id).length+'</td><td><button type="button" data-edit-structure="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>'
    :'<p>Структура пока не загружена. Загрузите резервную копию основного ГРОТ или добавьте первый элемент.</p>';
  }else{
+  const without=new Set(unassigned.map(x=>String(x.id)));
   rows=[...staff].sort((a,b)=>String(a.lastName||a.name).localeCompare(String(b.lastName||b.name),'ru'))
-   .filter(n=>normalized([n.name,n.position,n.department,structurePath(structure,n.structureId)].join(' ')).includes(term));
-  q('#v2-directory-content').innerHTML='<table class="directory-table"><thead><tr><th>ФИО</th><th>Должность</th><th>Подразделение</th><th>Дней</th><th></th></tr></thead><tbody>'+
-   rows.map(n=>'<tr><td>'+escapeHtml(n.name||[n.lastName,n.firstName,n.middleName].filter(Boolean).join(' '))+(n.dismissed?' · уволен':'')+'</td><td>'+escapeHtml(n.position||'—')+'</td>'+
-   '<td>'+escapeHtml(structurePath(structure,n.structureId)||n.department||'Не назначено')+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
+   .filter(n=>(!directoryUnassignedOnly||without.has(String(n.id)))&&
+    normalized([n.name,n.position,n.department,structurePath(structure,n.structureId)].join(' ')).includes(term));
+  q('#v2-directory-content').innerHTML='<table class="directory-table"><thead><tr><th><input type="checkbox" id="v2-directory-select-all" aria-label="Выбрать всех видимых"></th><th>ФИО</th><th>Должность</th><th>Подразделение</th><th>Дней</th><th></th></tr></thead><tbody>'+
+   rows.map(n=>'<tr><td><input type="checkbox" class="v2-directory-pick" value="'+escapeHtml(n.id)+'" aria-label="Выбрать '+escapeHtml(n.name)+'"></td><td>'+escapeHtml(n.name||[n.lastName,n.firstName,n.middleName].filter(Boolean).join(' '))+(n.dismissed?' · уволен':'')+'</td><td>'+escapeHtml(n.position||'—')+'</td>'+
+   '<td>'+escapeHtml(structurePath(structure,n.structureId)||'Без подразделения'+(n.department?' (указано: '+n.department+')':''))+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
    '<td><button type="button" data-edit-staff="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>';
  }
  q('#v2-directory-count').textContent='Записей: '+rows.length;
+ const allPick=q('#v2-directory-select-all');
+ if(allPick)allPick.onchange=()=>{for(const item of root.querySelectorAll('.v2-directory-pick'))item.checked=allPick.checked;};
+
  q('#v2-directory-content').onclick=e=>{
   const node=e.target.closest('[data-edit-structure],[data-edit-staff]');
   if(!node)return;
   const id=node.dataset.editStructure??node.dataset.editStaff;
   editDirectoryItem(id);
  };
+}
+function bulkAssignDirectory(){
+ const selected=[...q('#v2-directory-content').querySelectorAll('.v2-directory-pick:checked')].map(n=>n.value);
+ if(!selected.length){alert('Отметьте сотрудников галочками');return;}
+ if(!structure.length){alert('Сначала загрузите структуру предприятия');return;}
+ const options=structureRows(structure).map(n=>'<option value="'+escapeHtml(n.id)+'">'+escapeHtml('— '.repeat(n.depth)+n.name)+'</option>').join('');
+ q('#v2-directory-editor-title').textContent='Назначить подразделение · '+selected.length+' сотрудников';
+ q('#v2-directory-error').textContent='';
+ q('#v2-directory-fields').innerHTML='<label>Подразделение<select id="v2-bulk-target">'+options+'</select></label>'+
+  '<p class="muted">Изменится только привязка сотрудников к структуре. Отпуска, группы, нормы и история сохранятся.</p>';
+ q('#v2-directory-save').onclick=()=>{
+  try{
+   const target=q('#v2-bulk-target').value;
+   const name=structurePath(structure,target);
+   if(!confirm('Назначить '+selected.length+' сотрудников в «'+name+'»?'))return;
+   staff=assignStaffToStructure(staff,structure,selected,target);
+   dirty=true;persistDraft();
+   q('#v2-directory-editor').close();renderDirectory();
+  }catch(err){q('#v2-directory-error').textContent=err.message;}
+ };
+ q('#v2-directory-editor').showModal();
 }
 function editDirectoryItem(id){
  const isStructure=directoryMode==='structure';
