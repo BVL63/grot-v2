@@ -6,6 +6,13 @@ import {queryVacationAudit} from './v2AuditJournal.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
+const buildInfo=typeof __GROT_BUILD__!=='undefined'
+ ?__GROT_BUILD__
+ :{version:'2.0.0-dev',build:'local',commit:'local',builtAt:null};
+const buildDate=buildInfo.builtAt
+ ?new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Vladivostok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(buildInfo.builtAt))
+ :'локальная сборка';
+
 const baseYears=[2025,2026,2027,2028];
 const sampleStaff=[
  {id:'1',name:'Иванов Иван Иванович'},
@@ -31,12 +38,12 @@ function draw(){
  const active=records.filter(r=>!r.deleted);
  root.innerHTML=`
   <header class="v2-header"><div><strong>ГРАФИК ОТПУСКОВ</strong>
-   <small>ГРОТ 2.0 · отдельный пробный экран</small></div>
+   <small>ГРОТ ${escapeHtml(buildInfo.version)} · сборка №${escapeHtml(buildInfo.build)} · ${escapeHtml(buildDate)} (Владивосток) · ${escapeHtml(buildInfo.commit)}</small></div>
    <label>Год <select id="v2-year">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select></label>
   </header>
   <main>
    <p class="warning"><strong>Только тестирование:</strong> изменения действуют в памяти этой страницы,
-   исходный ГРОТ и его хранилище не изменяются. Для сохранения результата используйте «Скачать JSON».</p>
+   исходный ГРОТ и его хранилище не изменяются. Для сохранения результата используйте «Сохранить данные».</p>
    <div class="toolbar">
     <button id="v2-add">Добавить период</button>
     <button id="v2-import">Загрузить JSON для просмотра</button>
