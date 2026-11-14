@@ -90,7 +90,7 @@ export function inspectGrotBackup(data){
  return {
   ok:issues.length===0,
   type:'grot-backup',
-  records,staff,
+  records,staff,structure:clone(Array.isArray(data.structure)?data.structure:[]),
   sourceSnapshot:original,
   bundledHistoryReview,
   warnings,problems:issues,
