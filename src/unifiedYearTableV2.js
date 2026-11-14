@@ -153,15 +153,16 @@ function renderLane(lane){
   const span=entry.last-entry.first+1;
   const dates=span>1?datesInBlock(rec.period.start,rec.period.end):
    '<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>';
-  const offsets=span>1?proportionalMonthOffsets(rec.period.start,rec.period.end,span):null;
-  const content=offsets
+  const offsets=proportionalMonthOffsets(rec.period.start,rec.period.end,span);
+  const content=span>1
    ?'<span class="proportional-fill" style="--bar-left:'+offsets.left+'%;--bar-right:'+offsets.right+'%">'+
     '<span class="proportional-period-label">'+dates+'</span>'+
     '<strong>'+duration(rec.period.start,rec.period.end)+' дн.</strong></span>'
    :dates+'<strong>'+duration(rec.period.start,rec.period.end)+' дн.</strong>';
+  const singleStyle=span===1?' style="--single-left:'+offsets.left+'%;--single-right:'+offsets.right+'%"':'';
   cells.push('<td'+(span>1?' colspan="'+span+'" class="period-span"':'')+'>'+
    '<button type="button" class="vacation-period '+(span>1?'multi-month proportional-period':'single-month')+
-   '" data-period-id="'+esc(rec.id)+'" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+'">'+
+   '" data-period-id="'+esc(rec.id)+'" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+'"'+singleStyle+'>'+
    content+'</button></td>');
   month+=span;
  }
