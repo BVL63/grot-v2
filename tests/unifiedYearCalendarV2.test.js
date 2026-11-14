@@ -60,9 +60,9 @@ test('Переходящий отпуск показывает пропорци�
  assert.ok(Math.abs(off.right-6.4516)<0.001);
  const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[rec('x','2027-04-30','2027-05-27')],staff));
  assert.match(html,/proportional-period/);
- assert.match(html,/class="proportional-fill"[^>]*left:48\.3333%;right:6\.4516%/);
+ assert.match(html,/class="proportional-fill"[^>]*--bar-left:48\.3333%;--bar-right:6\.4516%/);
  assert.match(html,/30\.04\.27 – 27\.05\.27/);
- assert.match(html,/26 дн\./);
+ assert.match(html,/class="proportional-fill"[^>]*>[\s\S]*30\.04\.27 – 27\.05\.27[\s\S]*<strong>26 дн\.<\/strong><\/span>/);
 });
 test('Для перехода через три месяца полоса учитывает ширину каждого месяца',()=>{
  const o=proportionalMonthOffsets('2027-01-16','2027-03-15',3);
