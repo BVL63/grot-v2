@@ -5,7 +5,7 @@ import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
-import {validateStructure,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure} from './organizationDirectoryV2.js';
+import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
 import './v2Preview.css';
 
@@ -202,7 +202,7 @@ function draw(){
    const incoming=validateStructure(data.structure);
    if(!incoming.length)throw new Error('В файле нет структуры');
    if(!confirm('Загрузить '+incoming.length+' элементов структуры? Сотрудники и отпуска останутся без изменений. Текущий справочник структуры будет заменён.'))return;
-   structure=incoming;
+   structure=fillMissingStructureCodes(incoming);
    dirty=true;persistDraft();renderDirectory();
   }catch(err){alert('Не удалось загрузить структуру: '+err.message);}
   finally{e.target.value='';}
@@ -286,6 +286,10 @@ const collapsedStructure=new Set();
 let pendingStructureMembers=new Set();
 let directoryUnassignedOnly=false;
 function openDirectory(mode){
+ if(mode==='structure'&&structure.some(n=>!String(n.code||'').trim())){
+  try{structure=fillMissingStructureCodes(structure);dirty=true;persistDraft();}
+  catch(err){alert('Не удалось присвоить коды структуры: '+err.message);}
+ }
  directoryMode=mode;
  directoryUnassignedOnly=false;
  q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
@@ -438,7 +442,7 @@ function editDirectoryItem(id){
    .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.parentId||'')===String(n.id)?' selected':'')+'>'+
     escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
   fields.innerHTML='<label>Наименование<input name="name" required value="'+escapeHtml(row?.name||'')+'"></label>'+
-   '<label>Код<input name="code" value="'+escapeHtml(row?.code||'')+'"></label>'+
+   '<label>Код (автоматически)<input name="code" value="'+escapeHtml(row?.code||'')+'" readonly placeholder="При сохранении"></label>'+
    '<label>Тип<select name="type">'+['organization','division','department','brigade'].map(x=>'<option value="'+x+'"'+(x===(row?.type||'department')?' selected':'')+'>'+({organization:'Организация',division:'Подразделение',department:'Отдел',brigade:'Группа'}[x])+'</option>').join('')+'</select></label>'+
    '<label>Родитель<select name="parentId">'+parentOptions+'</select></label>'+
    '<label>Руководитель<select name="leaderId"><option value="">— Не назначен —</option>'+[...staff].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru')).map(p=>'<option value="'+escapeHtml(p.id)+'"'+(String(row?.leaderId||'')===String(p.id)?' selected':'')+'>'+escapeHtml(p.name)+'</option>').join('')+'</select></label>'+
@@ -458,7 +462,7 @@ function editDirectoryItem(id){
   try{
    const get=k=>form.elements.namedItem(k)?.value?.trim()||'';
    if(isStructure){
-    const entry={...(row||{}),id:row?.id||'st-v2-'+crypto.randomUUID(),name:get('name'),code:get('code'),type:get('type'),parentId:get('parentId')||null,leaderId:get('leaderId'),leaderTitle:get('leaderTitle')};
+    const entry={...(row||{}),id:row?.id||'st-v2-'+crypto.randomUUID(),name:get('name'),code:row?.code||'',type:get('type'),parentId:get('parentId')||null,leaderId:get('leaderId'),leaderTitle:get('leaderTitle')};
     structure=upsertStructure(structure,entry);
    }else{
     const entry={...(row||{}),id:row?.id||'staff-v2-'+crypto.randomUUID(),lastName:get('lastName'),firstName:get('firstName'),middleName:get('middleName'),
