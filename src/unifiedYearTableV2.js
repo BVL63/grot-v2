@@ -90,7 +90,7 @@ export function renderUnifiedYearTable(view){
  const header=view.months.map(m=>'<th>'+esc(m)+'</th>').join('');
  const body=view.rows.map(row=>{
   const lanes=monthLanes(row);
-  return lanes.map((lane,i)=>'<tr class="vacation-lane">'+
+  return lanes.map((lane,i)=>'<tr class="vacation-lane '+(lanes.length===1?'lane-single':i===0?'lane-first':i===lanes.length-1?'lane-last':'lane-middle')+'">'+
    (i===0?'<th scope="row" rowspan="'+lanes.length+'">'+esc(row.name)+'</th>':'')+
    renderLane(lane)+'</tr>').join('');
  }).join('');
