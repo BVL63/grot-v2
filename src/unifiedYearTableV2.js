@@ -168,14 +168,35 @@ function renderLane(lane){
  }
  return cells.join('');
 }
+/** Итоги отражают дни, приходящиеся на каждый месяц.
+ * Не учитываем праздничные нерабочие дни (та же логика, что у периода).
+ */
+export function calculateYearTotals(view){
+ const months=Array(12).fill(0);
+ const byStaff=view.rows.map(row=>{
+  const perMonth=row.months.map(segments=>
+   segments.reduce((sum,segment)=>sum+vacationDays(segment.from,segment.to),0));
+  perMonth.forEach((days,index)=>{months[index]+=days;});
+  return {id:row.id,months:perMonth,total:perMonth.reduce((sum,days)=>sum+days,0)};
+ });
+ return {byStaff,months,total:months.reduce((sum,days)=>sum+days,0)};
+}
 export function renderUnifiedYearTable(view){
- const header=view.months.map(m=>'<th>'+esc(m)+'</th>').join('');
- const body=view.rows.map(row=>{
+ const totals=calculateYearTotals(view);
+ const header=view.months.map(m=>'<th scope="col">'+esc(m)+'</th>').join('');
+ const body=view.rows.map((row,index)=>{
   const lanes=monthLanes(row);
+  const sum=totals.byStaff[index].total;
   return lanes.map((lane,i)=>'<tr class="vacation-lane '+(lanes.length===1?'lane-single':i===0?'lane-first':i===lanes.length-1?'lane-last':'lane-middle')+'">'+
    (i===0?'<th scope="row" rowspan="'+lanes.length+'" title="'+esc(row.name)+'">'+esc(row.shortName||shortStaffName(row))+'</th>':'')+
-   renderLane(lane)+'</tr>').join('');
+   renderLane(lane)+
+   (i===0?'<td class="employee-year-total" rowspan="'+lanes.length+'">'+sum+'</td>':'')+
+   '</tr>').join('');
  }).join('');
+ const footer='<tr class="year-totals-row"><th scope="row">Итого</th>'+
+  totals.months.map(days=>'<td>'+days+'</td>').join('')+
+  '<td class="year-grand-total">'+totals.total+'</td></tr>';
  return '<table class="annual-table grot-unified-year"><thead><tr><th scope="col">Сотрудник</th>'+header+
- '</tr></thead><tbody>'+body+'</tbody></table>';
+ '<th scope="col" class="year-total-header">Всего дней</th></tr></thead><tbody>'+body+
+ '</tbody><tfoot>'+footer+'</tfoot></table>';
 }
