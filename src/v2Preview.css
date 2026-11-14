@@ -122,3 +122,25 @@
 #v2-editor .calendar-day.calendar-holiday:not(.range-start):not(.range-end){box-shadow:inset 0 -2px #d56a6a;color:#a33e3e}
 #v2-editor .calendar-day.calendar-holiday.in-range:not(.range-start):not(.range-end){background:#fae8e8}
 @media(max-width:570px){.calendar-date-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px;gap:7px}}
+
+
+/* Несколько дорожек одного сотрудника выглядят как ОДНА строка:
+   убираем только внутренние горизонтальные границы между дорожками,
+   внешние границы между сотрудниками сохраняем. */
+.grot-unified-year tbody tr.vacation-lane.lane-first td,
+.grot-unified-year tbody tr.vacation-lane.lane-middle td{
+ border-bottom:0;
+}
+.grot-unified-year tbody tr.vacation-lane.lane-middle td,
+.grot-unified-year tbody tr.vacation-lane.lane-last td{
+ border-top:0;
+}
+.grot-unified-year tbody tr.vacation-lane.lane-first td,
+.grot-unified-year tbody tr.vacation-lane.lane-middle td,
+.grot-unified-year tbody tr.vacation-lane.lane-last td{
+ background:#fff;
+}
+/* Верх и низ каждого периода остаются внутри цельной строки сотрудника. */
+.grot-unified-year tbody tr.vacation-lane td .vacation-period{
+ margin:0;
+}
