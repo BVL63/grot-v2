@@ -51,3 +51,24 @@ test('Массовая привязка не меняет отпуска, гру
  assert.equal(people.find(x=>x.id===18).structureId,undefined);
  assert.throws(()=>assignStaffToStructure(people,structure,[18],'unknown'),/Подразделение/);
 });
+
+test('Начальник отдела включается в состав автоматически и не дублируется',()=>{
+ const nodes=[
+  {id:'root',name:'Поликлиника',parentId:null},
+  {id:'division',name:'Подразделение № 2',parentId:'root'},
+  {id:'office',name:'Хозяйственный отдел',parentId:'division',leaderId:'18'},
+  {id:'drivers',name:'Водители',parentId:'office'}
+ ];
+ const people=[
+  {id:18,name:'Воликов Р.И.',department:'Хозяйственный отдел'},
+  {id:4,name:'Бахметьев В.Л.',structureId:'drivers'},
+  {id:5,name:'Винник Д.В.',structureId:'drivers'}
+ ];
+ assert.deepEqual(staffForStructure(people,nodes,'office').map(x=>x.id),[18,4,5]);
+ assert.equal(staffForStructure(people,nodes,'division').length,3);
+ assert.equal(staffForStructure(people,nodes,'root').length,3);
+ assert.equal(unassignedStaff(people,nodes).length,0);
+ const assigned=[{...people[0],structureId:'office'},...people.slice(1)];
+ assert.equal(staffForStructure(assigned,nodes,'office').length,3);
+ assert.equal(people[0].structureId,undefined);
+});
