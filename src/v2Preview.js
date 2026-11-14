@@ -359,6 +359,7 @@ function openChartEditor(chart,initialStructureId=''){
    ' · Сотрудников: '+ids.size+(labels.length?' · '+labels.join('; '):'');
  };
  const renderTree=()=>{
+  const previousScroll=q('#v2-chart-roster')?.scrollTop||0;
   const search=q('#v2-chart-search').value.trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
   const norm=v=>String(v||'').toLocaleLowerCase('ru').replace(/ё/g,'е');
   // При поиске оставляем предков найденных звеньев, чтобы не терять иерархию.
@@ -391,15 +392,23 @@ function openChartEditor(chart,initialStructureId=''){
     '<span class="chart-tree-node-name" data-chart-expand="'+escapeHtml(node.id)+'">'+escapeHtml(node.name)+'</span>'+
     '<span class="chart-tree-code">'+escapeHtml(node.code||'')+'</span>'+
     '<span class="chart-tree-count">'+included+' / '+members.size+' чел.</span></div>';
-   if(!hasChild&&(expanded.has(String(node.id))||search)){
-    for(const person of staff.filter(p=>members.has(String(p.id))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))){
+   // Показываем сотрудников непосредственно за звеном, не повторяя
+   // всех работников дочерних отделов в каждой родительской строке.
+   // Листовые звенья раскрываются автоматически вместе с деревом.
+   if(!hasChild||expanded.has(String(node.id))||search){
+    const direct=staff.filter(p=>String(p.structureId)===String(node.id)||
+     String(node.leaderId||'')===String(p.id))
+     .filter(p=>!search||norm(node.name).includes(search)||norm(p.name).includes(search))
+     .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+    for(const person of direct){
      html+='<div class="chart-tree-person" style="--depth:'+(node.depth+1)+'">'+
       '<input type="checkbox" data-chart-person="'+escapeHtml(person.id)+'"'+(selected.has(String(person.id))?' checked':'')+'>'+
-      '<span>'+escapeHtml(person.name||'')+'</span></div>';
+      '<span>'+escapeHtml(person.name||'')+(String(node.leaderId||'')===String(person.id)?' (руководитель)':'')+'</span></div>';
     }
    }
   }
   q('#v2-chart-roster').innerHTML=html||'<p class="muted">Нет элементов структуры. Добавьте их в справочнике «Структура».</p>';
+  q('#v2-chart-roster').scrollTop=previousScroll;
   q('#v2-chart-roster').querySelectorAll('[data-chart-node]').forEach(input=>{
    const members=membersOf(input.dataset.chartNode);
    const included=[...members].filter(id=>selected.has(id)).length;
