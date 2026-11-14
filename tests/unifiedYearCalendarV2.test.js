@@ -107,9 +107,9 @@ test('Итоговый столбец и строка: суммы по меся�
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,3);
 });
 test('Итог за сотрудника выводится один раз при двух дорожках отпусков',()=>{
- const view=buildUnifiedYearView(2027,[rec('one','2027-06-01','2027-07-10'),rec('two','2027-07-15','2027-08-15')],staff);
+ const view=buildUnifiedYearView(2027,[rec('one','2027-06-01','2027-07-10'),rec('two','2027-07-11','2027-08-15')],staff);
  const html=renderUnifiedYearTable(view);
  assert.match(html,/rowspan="2"/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,1);
- assert.equal(calculateYearTotals(view).total,71);
+ assert.equal(calculateYearTotals(view).total,75);
 });
