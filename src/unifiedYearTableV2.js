@@ -74,7 +74,7 @@ const duration=vacationDays;
  * календарное непересечение само по себе не гарантирует отсутствие наложения.
  */
 function monthPosition(iso,year,isEnd=false){
- const value=isEnd?Math.min(iso,year+'-12-31'):Math.max(iso,year+'-01-01');
+ const value=isEnd?(iso>year+'-12-31'?year+'-12-31':iso):(iso<year+'-01-01'?year+'-01-01':iso);
  const m=Number(value.slice(5,7))-1;
  const days=new Date(Date.UTC(year,m+1,0)).getUTCDate();
  return m+(Number(value.slice(8,10))-1+(isEnd?1:0))/days;
