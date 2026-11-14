@@ -68,6 +68,11 @@ export function buildUnifiedYearView(year,records=[],staff=[]){
  * только когда объединение не скрывает другой отпуск в тех же месяцах.
  */
 const duration=vacationDays;
+/** Узкий блок: три строки, широкий: диапазон дат и дни. */
+function datesInBlock(start,end){
+ return '<span class="period-date-wide">'+dateText(start)+' – '+dateText(end)+'</span>'+
+  '<span class="period-date-narrow"><span>'+dateText(start)+'</span><span>'+dateText(end)+'</span></span>';
+}
 /** 
  * Периоды могут находиться в одной строке, даже если попадают в один месяц.
  * При этом учитываем минимальную ширину подписи ~94px (около 0.94 месяца):
@@ -117,9 +122,7 @@ function renderSharedGroup(entries,first,last){
   const rec=entry.rec;
   const left=Number(((entry.startAt-first)/span*100).toFixed(4));
   const right=Number(((last+1-entry.endAt)/span*100).toFixed(4));
-  const text=entry.first===entry.last
-   ?'<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>'
-   :'<span>'+dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</span>';
+  const text=datesInBlock(rec.period.start,rec.period.end);
   return '<button type="button" class="vacation-period shared-period" data-period-id="'+esc(rec.id)+
    '" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+
    '" style="--shared-left:'+left+'%;--shared-right:'+right+'%">'+
@@ -148,9 +151,8 @@ function renderLane(lane){
   }
   const entry=group.items[0],rec=entry.rec;
   const span=entry.last-entry.first+1;
-  const dates=span>1
-   ?'<span>'+dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</span>'
-   :'<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>';
+  const dates=span>1?datesInBlock(rec.period.start,rec.period.end):
+   '<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>';
   const offsets=span>1?proportionalMonthOffsets(rec.period.start,rec.period.end,span):null;
   const content=offsets
    ?'<span class="proportional-fill" style="--bar-left:'+offsets.left+'%;--bar-right:'+offsets.right+'%">'+
