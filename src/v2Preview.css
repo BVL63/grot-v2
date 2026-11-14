@@ -144,3 +144,14 @@
 .grot-unified-year tbody tr.vacation-lane td .vacation-period{
  margin:0;
 }
+
+/* Чётче разделяем СОТРУДНИКОВ, но не внутренние дорожки их отпусков. */
+.grot-unified-year tbody tr.vacation-lane.lane-single td,
+.grot-unified-year tbody tr.vacation-lane.lane-last td,
+.grot-unified-year tbody th[scope="row"]{
+ border-bottom:2px solid #bfccdc;
+}
+.grot-unified-year tbody tr.vacation-lane.lane-first td,
+.grot-unified-year tbody tr.vacation-lane.lane-middle td{
+ border-bottom:0;
+}
