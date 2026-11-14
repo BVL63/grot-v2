@@ -36,3 +36,19 @@ test('Королёва: при соседних переходящих отпу�
   assert.equal((html.match(/14 дн\./g)||[]).length,1);
  assert.equal((html.match(/12 дн\./g)||[]).length,1);
 });
+
+import {shortStaffName} from '../src/unifiedYearTableV2.js';
+test('График показывает Фамилия И.О., справочник не меняется',()=>{
+ const employee={id:42,lastName:'Королева',firstName:'Ангелина',middleName:'Сергеевна',name:'Королева Ангелина Сергеевна'};
+ const before=structuredClone(employee);
+ const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[],[employee]));
+ assert.match(html,/>Королева А\.С\.<\/th>/);
+ assert.match(html,/title="Королева Ангелина Сергеевна"/);
+ assert.deepEqual(employee,before);
+});
+test('Сокращение имён при смешанных исторических форматах',()=>{
+ assert.equal(shortStaffName({name:'Бахметьев В.Л.',lastName:'Бахметьев',firstName:'Владимир',middleName:'Леонидович'}),'Бахметьев В.Л.');
+ assert.equal(shortStaffName({name:'Иванов Иван Иванович'}),'Иванов И.И.');
+ assert.equal(shortStaffName({name:'Петров П.П.'}),'Петров П.П.');
+ assert.equal(shortStaffName({name:'Сидорюк Виктория'}),'Сидорюк В.');
+});
