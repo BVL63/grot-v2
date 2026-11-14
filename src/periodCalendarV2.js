@@ -7,6 +7,37 @@ export function shiftMonth(anchor,delta){
  const d=new Date(Date.UTC(y,m-1+delta,1));
  return d.toISOString().slice(0,7);
 }
+
+/** Ст. 112, 120 ТК РФ: праздничные дни не учитываются в длительности отпуска.
+ * Перенесённые выходные остаются календарными днями отпуска.
+ */
+const RF_HOLIDAYS=new Set([
+ '01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08',
+ '02-23','03-08','05-01','05-09','06-12','11-04'
+]);
+export const isVacationHoliday=iso=>validIsoDate(iso)&&RF_HOLIDAYS.has(iso.slice(5));
+export function vacationDays(start,end){
+ if(!validIsoDate(start)||!validIsoDate(end)||end<start)return 0;
+ let count=0;
+ const from=Date.parse(start+'T12:00:00Z'),to=Date.parse(end+'T12:00:00Z');
+ for(let t=from;t<=to;t+=86400000){
+  if(!isVacationHoliday(new Date(t).toISOString().slice(0,10)))count++;
+ }
+ return count;
+}
+export function endDateForDays(start,days){
+ const count=Number(days);
+ if(!validIsoDate(start)||!Number.isInteger(count)||count<1||count>3660)
+  throw new RangeError('Укажите начало и количество дней от 1 до 3660');
+ let current=Date.parse(start+'T12:00:00Z'),rest=count;
+ for(let i=0;i<4000;i++,current+=86400000){
+  const date=new Date(current).toISOString().slice(0,10);
+  if(!isVacationHoliday(date))rest--;
+  if(rest===0)return date;
+ }
+ throw new RangeError('Период слишком длинный');
+}
+
 function renderMonth(anchor,start,end){
  const [y,m]=anchor.split('-').map(Number);
  const first=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7;
@@ -19,6 +50,7 @@ function renderMonth(anchor,start,end){
   if(start&&end&&date>=start&&date<=end)classes.push('in-range');
   if(date===start)classes.push('range-start');
   if(date===end)classes.push('range-end');
+  if(isVacationHoliday(date))classes.push('calendar-holiday');
   const aria=date===start&&date===end?'Начало и конец':date===start?'Начало отпуска':date===end?'Конец отпуска':'';
   cells.push('<button type="button" class="'+classes.join(' ')+'" data-calendar-day="'+date+'" aria-label="'+date+(aria?', '+aria:'')+'">'+day+'</button>');
  }
