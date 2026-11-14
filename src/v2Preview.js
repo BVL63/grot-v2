@@ -5,6 +5,7 @@ import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
+import {validateStructure,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff} from './organizationDirectoryV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -22,6 +23,7 @@ const sampleStaff=[
  {id:'3',name:'Сидоров Сергей Сергеевич'}
 ];
 let staff=sampleStaff.map(x=>({...x}));
+let structure=[];
 let records=[
  {id:'demo-1',year:2026,chartId:null,staffId:'1',staffName:staff[0].name,period:{start:'2026-06-15',end:'2026-06-28'},audit:[]},
  {id:'demo-2',year:2027,chartId:null,staffId:'1',staffName:staff[0].name,period:{start:'2027-07-15',end:'2027-07-28'},audit:[]},
@@ -32,7 +34,7 @@ let originalImport=null,importReport='',historyReview=null;
 let localSaveStatus='Локальное сохранение не проверено';
 function persistDraft(){
  try{
-  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,year,source:loadedSource,dirty}));
+  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,structure,year,source:loadedSource,dirty}));
   localSaveStatus='Автосохранение на этом устройстве';
  }catch(err){
   localSaveStatus='Автосохранение недоступно — сохраните файл';
@@ -42,7 +44,7 @@ function restoreDraftAtStartup(){
  try{
   const draft=parseLocalDraft(localStorage.getItem(DRAFT_KEY));
   if(!draft){localSaveStatus='Локальная копия отсутствует';return;}
-  staff=draft.staff;records=draft.records;year=draft.year;
+  staff=draft.staff;records=draft.records;structure=draft.structure||[];year=draft.year;
   loadedSource=draft.source;dirty=draft.dirty;
   localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU'):'');
   importReport='Автоматически восстановлена локальная копия. Рекомендуется также сохранять резервный файл.';
@@ -73,6 +75,8 @@ function draw(){
   <main>
    <p class="warning"><strong>ГРОТ 2.0 — тестовый режим.</strong> Данные автоматически сохраняются на этом устройстве в браузере. Для резервной копии используйте «Сохранить данные». Основной ГРОТ не затрагивается.</p>
    <div class="toolbar">
+    <button id="v2-structure">Структура</button>
+    <button id="v2-staff">Сотрудники</button>
     <button id="v2-add">Добавить период</button>
     <button id="v2-import">Восстановить данные</button>
     <button id="v2-export">Сохранить данные</button>
@@ -89,6 +93,23 @@ function draw(){
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
    <button type="button" role="menuitem" id="v2-menu-delete">Удалить</button>
   </div>
+  <dialog id="v2-directory-dialog">
+   <div class="directory-heading"><h2 id="v2-directory-title">Справочник</h2><button type="button" id="v2-directory-close">Закрыть</button></div>
+   <div class="directory-toolbar">
+    <input id="v2-directory-search" type="search" placeholder="Поиск по названию или ФИО" aria-label="Поиск">
+    <button type="button" id="v2-directory-add">Добавить</button>
+    <span id="v2-directory-count" class="muted"></span>
+   </div>
+   <div id="v2-directory-content" class="directory-content"></div>
+  </dialog>
+  <dialog id="v2-directory-editor">
+   <form method="dialog" id="v2-directory-form">
+    <h2 id="v2-directory-editor-title"></h2>
+    <div id="v2-directory-fields"></div>
+    <p id="v2-directory-error" role="alert"></p>
+    <div class="actions"><button type="button" id="v2-directory-save">Сохранить</button><button type="button" id="v2-directory-cancel">Закрыть</button></div>
+   </form>
+  </dialog>
   <dialog id="v2-audit-dialog">
    <div class="audit-header"><h2>Журнал изменений</h2><button type="button" id="v2-audit-close">Закрыть</button></div>
    <p class="muted">Просмотр по запросу. Не влияет на ввод отпусков.</p>
@@ -140,6 +161,12 @@ function draw(){
   <footer>ГРОТ 2.0 — демонстрация · основной график не затронут</footer>`;
  q('#v2-year').onchange=e=>{year=Number(e.target.value);selected=null;persistDraft();draw();};
  q('#v2-add').onclick=()=>openEditor(null);
+ q('#v2-structure').onclick=()=>openDirectory('structure');
+ q('#v2-staff').onclick=()=>openDirectory('staff');
+ q('#v2-directory-close').onclick=()=>q('#v2-directory-dialog').close();
+ q('#v2-directory-search').oninput=renderDirectory;
+ q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
+ q('#v2-directory-cancel').onclick=()=>q('#v2-directory-editor').close();
  q('#v2-import').onclick=()=>q('#v2-file').click();
  q('#v2-file').onchange=importJson;
  q('#v2-export').onclick=exportJson;
@@ -210,6 +237,85 @@ function draw(){
  root.onclick=e=>{if(!e.target.closest('#v2-period-menu')&&!e.target.closest('[data-period-id]'))hideMenu();};
  menu.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();e.preventDefault();}});
  
+}
+let directoryMode='structure';
+function openDirectory(mode){
+ directoryMode=mode;
+ q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
+ q('#v2-directory-search').value='';
+ renderDirectory();
+ q('#v2-directory-dialog').showModal();
+}
+function renderDirectory(){
+ const term=q('#v2-directory-search').value.toLocaleLowerCase('ru').replace(/ё/g,'е');
+ const normalized=value=>String(value||'').toLocaleLowerCase('ru').replace(/ё/g,'е');
+ let rows=[];
+ if(directoryMode==='structure'){
+  rows=structureRows(structure).filter(n=>normalized([n.name,n.code,n.type].join(' ')).includes(term));
+  q('#v2-directory-content').innerHTML=structure.length
+   ?'<table class="directory-table"><thead><tr><th>Код</th><th>Структура</th><th>Сотрудников</th><th></th></tr></thead><tbody>'+
+    rows.map(n=>'<tr><td>'+escapeHtml(n.code||'')+'</td><td style="padding-left:'+(12+n.depth*17)+'px">'+escapeHtml(n.name)+'</td>'+
+    '<td>'+staffForStructure(staff,structure,n.id).length+'</td><td><button type="button" data-edit-structure="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>'
+   :'<p>Структура пока не загружена. Загрузите резервную копию основного ГРОТ или добавьте первый элемент.</p>';
+ }else{
+  rows=[...staff].sort((a,b)=>String(a.lastName||a.name).localeCompare(String(b.lastName||b.name),'ru'))
+   .filter(n=>normalized([n.name,n.position,n.department,structurePath(structure,n.structureId)].join(' ')).includes(term));
+  q('#v2-directory-content').innerHTML='<table class="directory-table"><thead><tr><th>ФИО</th><th>Должность</th><th>Подразделение</th><th>Дней</th><th></th></tr></thead><tbody>'+
+   rows.map(n=>'<tr><td>'+escapeHtml(n.name||[n.lastName,n.firstName,n.middleName].filter(Boolean).join(' '))+(n.dismissed?' · уволен':'')+'</td><td>'+escapeHtml(n.position||'—')+'</td>'+
+   '<td>'+escapeHtml(structurePath(structure,n.structureId)||n.department||'Не назначено')+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
+   '<td><button type="button" data-edit-staff="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>';
+ }
+ q('#v2-directory-count').textContent='Записей: '+rows.length;
+ q('#v2-directory-content').onclick=e=>{
+  const node=e.target.closest('[data-edit-structure],[data-edit-staff]');
+  if(!node)return;
+  const id=node.dataset.editStructure??node.dataset.editStaff;
+  editDirectoryItem(id);
+ };
+}
+function editDirectoryItem(id){
+ const isStructure=directoryMode==='structure';
+ const row=isStructure?structure.find(n=>String(n.id)===String(id)):staff.find(n=>String(n.id)===String(id));
+ const form=q('#v2-directory-form'),fields=q('#v2-directory-fields');
+ q('#v2-directory-editor-title').textContent=(row?'Изменить ':'Добавить ')+(isStructure?'элемент структуры':'сотрудника');
+ q('#v2-directory-error').textContent='';
+ if(isStructure){
+  const parentOptions='<option value="">— Корневой элемент —</option>'+structureRows(structure)
+   .filter(n=>!row||String(n.id)!==String(row.id))
+   .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.parentId||'')===String(n.id)?' selected':'')+'>'+
+    escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
+  fields.innerHTML='<label>Наименование<input name="name" required value="'+escapeHtml(row?.name||'')+'"></label>'+
+   '<label>Код<input name="code" value="'+escapeHtml(row?.code||'')+'"></label>'+
+   '<label>Тип<select name="type">'+['organization','division','department','brigade'].map(x=>'<option value="'+x+'"'+(x===(row?.type||'department')?' selected':'')+'>'+({organization:'Организация',division:'Подразделение',department:'Отдел',brigade:'Группа'}[x])+'</option>').join('')+'</select></label>'+
+   '<label>Родитель<select name="parentId">'+parentOptions+'</select></label>';
+ }else{
+  const options='<option value="">— Не назначено —</option>'+structureRows(structure)
+   .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.structureId||'')===String(n.id)?' selected':'')+'>'+escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
+  const inp=(key,label)=>'<label>'+label+'<input name="'+key+'" value="'+escapeHtml(row?.[key]||'')+'"></label>';
+  fields.innerHTML='<div class="directory-name-fields">'+inp('lastName','Фамилия')+inp('firstName','Имя')+inp('middleName','Отчество')+'</div>'+
+    inp('position','Должность')+
+    '<label>Место работы<select name="structureId">'+options+'</select></label>'+
+    '<label>Дней отпуска<input name="allowance" type="number" min="0" max="365" value="'+escapeHtml(row?.allowance??36)+'"></label>'+
+    '<div class="directory-name-fields">'+inp('hireDate','Принят (гггг-мм-дд)')+inp('dismissalDate','Уволен (гггг-мм-дд)')+'</div>'+
+    '<label class="directory-checkbox"><input type="checkbox" name="dismissed" '+(row?.dismissed?'checked':'')+'> Уволен(а)</label>';
+ }
+ q('#v2-directory-save').onclick=()=>{
+  try{
+   const get=k=>form.elements.namedItem(k)?.value?.trim()||'';
+   if(isStructure){
+    const entry={...(row||{}),id:row?.id||'st-v2-'+crypto.randomUUID(),name:get('name'),code:get('code'),type:get('type'),parentId:get('parentId')||null};
+    structure=upsertStructure(structure,entry);
+   }else{
+    const entry={...(row||{}),id:row?.id||'staff-v2-'+crypto.randomUUID(),lastName:get('lastName'),firstName:get('firstName'),middleName:get('middleName'),
+     position:get('position'),structureId:get('structureId'),allowance:Number(get('allowance')),hireDate:get('hireDate'),dismissalDate:get('dismissalDate'),
+     dismissed:form.elements.namedItem('dismissed').checked};
+    entry.department=entry.structureId?structurePath(structure,entry.structureId):entry.department||'';
+    staff=upsertStaff(staff,entry);
+   }
+   dirty=true;persistDraft();q('#v2-directory-editor').close();renderDirectory();
+  }catch(err){q('#v2-directory-error').textContent=err.message;}
+ };
+ q('#v2-directory-editor').showModal();
 }
 const auditDates=x=>x&&typeof x==='object'?
  escapeHtml([x.start,x.end].filter(Boolean).join(' — ')||JSON.stringify(x)):
@@ -360,7 +466,7 @@ async function importJson(e){
    [...(inspected.problems||[]),...(inspected.warnings||[])].join('; ');
   if(!inspected.ok){alert('Импорт не выполнен: '+inspected.problems.join('; '));draw();return;}
   const newRecords=inspected.records,newStaff=inspected.staff;
-  records=newRecords;staff=newStaff;originalImport=inspected.sourceSnapshot;
+  records=newRecords;staff=newStaff;structure=inspected.structure||[];originalImport=inspected.sourceSnapshot;
   historyReview=inspected.bundledHistoryReview||null;
   loadedSource='Проверен файл: '+file.name;
   if(!records.some(r=>Number(r.year)===year))year=records[0]?.year||2027;
@@ -373,7 +479,7 @@ function downloadJson(data,name){
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function exportJson(){
- downloadJson({schemaVersion:2,staff,records},'grot-v2-preview-'+year+'.json');
+ downloadJson({schemaVersion:2,staff,records,structure},'grot-v2-preview-'+year+'.json');
  dirty=false;persistDraft();draw();
 }
 draw();
