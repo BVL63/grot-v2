@@ -24,17 +24,22 @@ test('Нельзя скрывать второй период объединён
  assert.match(html,/data-period-id="d"/);
 });
 
-test('Королёва: при соседних переходящих отпусках дни не дублируются',()=>{
+test('Королёва: переходящие отпуска в одном месяце, но в одной строке',()=>{
  const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[
   rec('feb-mar','2027-02-15','2027-03-01'),
-  rec('mar-apr','2027-03-29','2027-04-09')
+  rec('mar-apr','2027-03-29','2027-04-09'),
+  rec('jul-aug','2027-07-26','2027-08-16'),
+  rec('oct','2027-10-25','2027-10-29')
  ],staff));
- assert.equal((html.match(/colspan="2" class="period-span"/g)||[]).length,2);
- assert.match(html,/rowspan="2"/);
+ assert.equal((html.match(/<tr class="vacation-lane/g)||[]).length,1);
+ assert.match(html,/colspan="3" class="shared-months-cell"/);
+ assert.equal((html.match(/class="vacation-period shared-period"/g)||[]).length,2);
  assert.match(html,/15\.02\.27 – 01\.03\.27/);
  assert.match(html,/29\.03\.27 – 09\.04\.27/);
-  assert.equal((html.match(/14 дн\./g)||[]).length,1);
+ assert.equal((html.match(/14 дн\./g)||[]).length,1);
  assert.equal((html.match(/12 дн\./g)||[]).length,1);
+ for(const id of ['feb-mar','mar-apr','jul-aug','oct'])
+  assert.equal((html.match(new RegExp('data-period-id="'+id+'"','g'))||[]).length,1);
 });
 
 import {shortStaffName} from '../src/unifiedYearTableV2.js';
