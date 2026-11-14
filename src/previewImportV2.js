@@ -1,5 +1,6 @@
 import {inspectGrotBackup} from './grotBackupAdapterV2.js';
 import {validateStructure} from './organizationDirectoryV2.js';
+import {validateCharts} from './chartRosterV2.js';
 /**
  * ГРОТ 2.0 — проверка импорта только в память пробной страницы.
  * Никакой доступ к localStorage, никакая запись в рабочую базу.
@@ -19,8 +20,9 @@ export function inspectPreviewImport(data){
  if(Array.isArray(data.records)){
   if(!Array.isArray(data.staff))throw new Error('Для формата 2.0 требуется массив staff');
   const ids=new Set(),problems=[];
-  let structure=[];
+  let structure=[],charts=[];
   try{structure=validateStructure(data.structure||[]);}catch(err){problems.push(err.message);}
+  try{charts=validateCharts(data.charts||[],data.staff);}catch(err){problems.push(err.message);}
   data.records.forEach((r,i)=>{
    if(!validRecord(r))problems.push('Запись '+(i+1)+': неверный период или идентификатор');
    const key=String(r?.id);
@@ -29,7 +31,7 @@ export function inspectPreviewImport(data){
   });
   if(problems.length)return {ok:false,type:'v2',problems,counts:{original:data.records.length,converted:0}};
   return {ok:true,type:'v2',problems:[],counts:{original:data.records.length,converted:data.records.length},
-   records:copy(data.records),staff:copy(data.staff),structure,sourceSnapshot:copy(data)};
+   records:copy(data.records),staff:copy(data.staff),structure,charts,sourceSnapshot:copy(data)};
  }
  if(Array.isArray(data.working2027)&&Array.isArray(data.history) &&
     Array.isArray(data.staff)){
@@ -43,7 +45,7 @@ export function inspectPreviewImport(data){
   return {
    ok:problems.length===0,type:'legacy',problems,
    counts:{original:migration.counts.originalVacationRows,converted:migration.counts.convertedVacationRows},
-   records:migration.preview.records,staff:copy(data.staff),structure:validateStructure(data.structure||[]),
+   records:migration.preview.records,staff:copy(data.staff),structure:validateStructure(data.structure||[]),charts:[],
    sourceSnapshot:copy(data)
   };
  }
