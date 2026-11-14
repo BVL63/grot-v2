@@ -1,0 +1,15 @@
+{
+  "name": "grot-v2",
+  "version": "2.0.0-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "test": "node --test tests/*V2.test.js",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}
