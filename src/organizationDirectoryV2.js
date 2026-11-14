@@ -42,10 +42,45 @@ export function structureRows(nodes){
  };
  walk(null,0);return rows;
 }
+/**
+ * Автонумерация структуры: 01 → 01.02 → 01.02.01.
+ * Заполняет только отсутствующие коды; существующие никогда не перенумеровывает.
+ * Новым элементам назначает следующий номер после максимального номера
+ * у соседних элементов одного родителя.
+ */
+export function fillMissingStructureCodes(nodes){
+ const result=validateStructure(nodes);
+ const byId=new Map(result.map(n=>[String(n.id),n]));
+ const visiting=new Set();
+ const assign=node=>{
+  const id=String(node.id);
+  if(visiting.has(id))throw new Error('Цикл в структуре');
+  visiting.add(id);
+  const parent=node.parentId==null?null:byId.get(String(node.parentId));
+  if(parent)assignIfMissing(parent);
+  if(!String(node.code||'').trim()){
+   const prefix=parent?String(parent.code)+'.':'';
+   const used=result.filter(s=>String(s.id)!==id&&String(s.parentId??'')===String(node.parentId??''))
+    .map(s=>String(s.code||'').trim())
+    .filter(code=>code.startsWith(prefix)&&/^\\d+$/.test(code.slice(prefix.length)))
+    .map(code=>Number(code.slice(prefix.length)));
+   const next=Math.max(0,...used)+1;
+   node.code=prefix+String(next).padStart(2,'0');
+  }
+  visiting.delete(id);
+ };
+ const done=new Set();
+ const assignIfMissing=node=>{
+  if(done.has(String(node.id)))return;
+  assign(node);done.add(String(node.id));
+ };
+ for(const node of result)assignIfMissing(node);
+ return result;
+}
 export function upsertStructure(nodes,entry){
  const current=nodes.find(n=>String(n.id)===String(entry.id));
  const next=current?nodes.map(n=>String(n.id)===String(entry.id)?{...n,...entry}:n):[...nodes,entry];
- return validateStructure(next);
+ return fillMissingStructureCodes(next);
 }
 export function structurePath(nodes,id){
  const map=new Map(nodes.map(n=>[String(n.id),n])),parts=[];let current=map.get(String(id));const visited=new Set();
