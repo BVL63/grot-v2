@@ -212,3 +212,27 @@
 .directory-pick-list input{width:17px;height:17px;flex:none}
 .directory-pick-footer{display:flex;align-items:center;gap:15px;justify-content:space-between;margin-top:12px}
 @media(max-width:640px){.directory-tree{min-width:670px}.directory-tree td{font-size:12px}.directory-tree th:nth-child(1){width:48%}}
+
+
+/* Модальные справочники: колесо мыши прокручивает только их содержимое. */
+html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
+#v2-directory-dialog[open]{
+ height:min(800px,90dvh);
+ max-height:90dvh;
+ overflow:hidden;
+}
+#v2-directory-dialog .directory-content{
+ flex:1 1 auto;
+ min-height:0;
+ max-height:none;
+ overflow-y:auto;
+ overflow-x:auto;
+ overscroll-behavior:contain;
+ scrollbar-gutter:stable;
+}
+#v2-directory-dialog .directory-attached,
+#v2-structure-pick-dialog .directory-pick-list,
+#v2-directory-editor,
+#v2-structure-pick-dialog{
+ overscroll-behavior:contain;
+}
