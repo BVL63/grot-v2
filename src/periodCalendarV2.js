@@ -1,0 +1,35 @@
+/** Inline two-month vacation range calendar (Monday first, ISO local dates). */
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+export const validIsoDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!Number.isNaN(Date.parse(s+'T12:00:00Z'));
+export function shiftMonth(anchor,delta){
+ const [y,m]=anchor.split('-').map(Number);
+ const d=new Date(Date.UTC(y,m-1+delta,1));
+ return d.toISOString().slice(0,7);
+}
+function renderMonth(anchor,start,end){
+ const [y,m]=anchor.split('-').map(Number);
+ const first=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7;
+ const count=new Date(Date.UTC(y,m,0)).getUTCDate();
+ const weekdays=DAYS.map(x=>'<span class="calendar-weekday">'+x+'</span>').join('');
+ const cells=Array.from({length:first},()=>'<span class="calendar-blank"></span>');
+ for(let day=1;day<=count;day++){
+  const date=anchor+'-'+String(day).padStart(2,'0');
+  const classes=['calendar-day'];
+  if(start&&end&&date>=start&&date<=end)classes.push('in-range');
+  if(date===start)classes.push('range-start');
+  if(date===end)classes.push('range-end');
+  const aria=date===start&&date===end?'Начало и конец':date===start?'Начало отпуска':date===end?'Конец отпуска':'';
+  cells.push('<button type="button" class="'+classes.join(' ')+'" data-calendar-day="'+date+'" aria-label="'+date+(aria?', '+aria:'')+'">'+day+'</button>');
+ }
+ return '<section class="calendar-month"><h3>'+MONTHS[m-1]+' '+y+'</h3><div class="calendar-days">'+weekdays+cells.join('')+'</div></section>';
+}
+export function renderRangeCalendar(start,end,anchor){
+ if(!/^\d{4}-\d{2}$/.test(anchor||''))throw new Error('Неверный месяц календаря');
+ return renderMonth(anchor,start,end)+renderMonth(shiftMonth(anchor,1),start,end);
+}
+export function inclusiveCalendarDays(start,end){
+ if(!validIsoDate(start)||!validIsoDate(end)||end<start)return 0;
+ const a=Date.parse(start+'T12:00:00Z'),b=Date.parse(end+'T12:00:00Z');
+ return Math.round((b-a)/86400000)+1;
+}
