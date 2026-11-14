@@ -511,3 +511,40 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
 #v2-chart-exception-search{width:100%;margin:9px 0}
 #v2-chart-exceptions .directory-pick-list{height:min(28vh,230px);overscroll-behavior:contain}
 #v2-chart-dialog .directory-pick-footer{margin-top:0}
+
+
+/* Сводные итоги по сотрудникам, месяцам и году. */
+.grot-unified-year .year-total-header,
+.grot-unified-year .employee-year-total,
+.grot-unified-year .year-grand-total{
+ min-width:88px;
+ width:88px;
+ text-align:center;
+ white-space:nowrap;
+ font-weight:700;
+}
+.grot-unified-year .employee-year-total{
+ background:#f2f6fb;
+ font-size:14px;
+ border-left:2px solid #bbc9da;
+}
+.grot-unified-year tfoot th,
+.grot-unified-year tfoot td{
+ background:#e2ecf8;
+ border-top:2px solid #a3b7d0;
+ padding:11px 5px;
+ text-align:center;
+ font-weight:700;
+ font-size:13px;
+}
+.grot-unified-year tfoot th{
+ text-align:left;
+ position:sticky;
+ left:0;
+ z-index:3;
+}
+.grot-unified-year tfoot .year-grand-total{
+ background:#d2e2f4;
+ border-left:2px solid #bbc9da;
+ font-size:15px;
+}
