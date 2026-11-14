@@ -140,3 +140,42 @@ test('Нули в годовых итогах не выводятся',()=>{
  assert.equal((html.match(/Сотрудников в отпуске: 0">0<\/td>/g)||[]).length,0);
  assert.match(html,/<td class="year-grand-total"[^>]*><\/td>/);
 });
+
+import {calculateDailyAbsence} from '../src/unifiedYearTableV2.js';
+test('Раскрытый март показывает 31 день и численность сотрудников по каждому дню',()=>{
+ const people=[{id:'1',name:'Иванов И.И.'},{id:'2',name:'Петров П.П.'}];
+ const items=[
+  rec('first','2027-03-05','2027-03-15'),
+  rec('second','2027-03-25','2027-03-28'),
+  {id:'third',year:2027,staffId:'2',period:{start:'2027-03-10',end:'2027-04-03'}}
+ ];
+ const view=buildUnifiedYearView(2027,items,people);
+ const daily=calculateDailyAbsence(view,2);
+ assert.equal(daily.dates.length,31);
+ assert.equal(daily.counts[4],1);
+ assert.equal(daily.counts[9],2);
+ assert.equal(daily.counts[19],1);
+ assert.equal(daily.counts[25],2);
+ assert.equal(daily.counts[30],1);
+ const html=renderUnifiedYearTable(view,{expandedMonth:2});
+ assert.match(html,/colspan="31"/);
+ assert.equal((html.match(/class="daily-date-heading"/g)||[]).length,31);
+ assert.match(html,/data-expand-month="2" aria-expanded="true"/);
+ assert.match(html,/data-period-id="third"/);
+ assert.match(html,/class="daily-total-cell">2<\/td>/);
+ assert.match(html,/class="employee-year-total">/);
+});
+test('В феврале високосного года 29 столбцов, в обычном 28',()=>{
+ const feb28=calculateDailyAbsence(buildUnifiedYearView(2028,[],staff),1);
+ const feb27=calculateDailyAbsence(buildUnifiedYearView(2027,[],staff),1);
+ assert.equal(feb28.dates.length,29);
+ assert.equal(feb27.dates.length,28);
+});
+test('Отпуск через границу месяцев отображается в каждом соответствующем дне',()=>{
+ const view=buildUnifiedYearView(2027,[rec('across','2027-02-27','2027-03-03')],staff);
+ assert.deepEqual(calculateDailyAbsence(view,1).counts.slice(-3),[0,1,1]);
+ assert.deepEqual(calculateDailyAbsence(view,2).counts.slice(0,4),[1,1,1,0]);
+ const collapsed=renderUnifiedYearTable(view);
+ assert.match(collapsed,/data-expand-month="2" aria-expanded="false"/);
+ assert.match(collapsed,/class="proportional-fill"/);
+});
