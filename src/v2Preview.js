@@ -337,7 +337,7 @@ function renderDirectory(){
     normalized([n.name,n.position,n.department,structurePath(structure,n.structureId)].join(' ')).includes(term));
   q('#v2-directory-content').innerHTML='<table class="directory-table"><thead><tr><th><input type="checkbox" id="v2-directory-select-all" aria-label="Выбрать всех видимых"></th><th>ФИО</th><th>Должность</th><th>Подразделение</th><th>Дней</th><th></th></tr></thead><tbody>'+
    rows.map(n=>'<tr><td><input type="checkbox" class="v2-directory-pick" value="'+escapeHtml(n.id)+'" aria-label="Выбрать '+escapeHtml(n.name)+'"></td><td>'+escapeHtml(n.name||[n.lastName,n.firstName,n.middleName].filter(Boolean).join(' '))+(n.dismissed?' · уволен':'')+'</td><td>'+escapeHtml(n.position||'—')+'</td>'+
-   '<td>'+escapeHtml(structurePath(structure,n.structureId)||'Без подразделения'+(n.department?' (указано: '+n.department+')':''))+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
+   '<td>'+escapeHtml(structurePath(structure,n.structureId)||structure.filter(x=>String(x.leaderId)===String(n.id)).map(x=>structurePath(structure,x.id)+' (руководитель)').join('; ')||'Без подразделения'+(n.department?' (указано: '+n.department+')':''))+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
    '<td><button type="button" data-edit-staff="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>';
  }
  q('#v2-directory-content').scrollTop=previousScroll;
@@ -368,7 +368,8 @@ function removeSelectedStructure(){
 }
 function openStructurePicker(){
  const node=structure.find(n=>String(n.id)===String(selectedStructureId));if(!node)return;
- pendingStructureMembers=new Set(staff.filter(p=>String(p.structureId)===String(node.id)).map(p=>String(p.id)));
+ const leaderId=node.leaderId==null?'':String(node.leaderId);
+ pendingStructureMembers=new Set(staff.filter(p=>String(p.structureId)===String(node.id)||String(p.id)===leaderId).map(p=>String(p.id)));
  q('#v2-structure-pick-description').textContent='Состав: '+structurePath(structure,node.id)+' (непосредственно в этом элементе)';
  q('#v2-structure-pick-search').value='';
  const render=()=>{
@@ -376,8 +377,8 @@ function openStructurePicker(){
   const visible=[...staff].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))
    .filter(p=>String(p.name||'').toLocaleLowerCase('ru').replace(/ё/g,'е').includes(search));
   q('#v2-structure-pick-list').innerHTML=visible.map(p=>
-   '<label><input type="checkbox" data-structure-member="'+escapeHtml(p.id)+'"'+(pendingStructureMembers.has(String(p.id))?' checked':'')+'>'+
-   '<span>'+escapeHtml(p.name||'')+(p.dismissed?' (уволен)':'')+
+   '<label><input type="checkbox" data-structure-member="'+escapeHtml(p.id)+'"'+(pendingStructureMembers.has(String(p.id))?' checked':'')+(String(p.id)===leaderId?' disabled':'')+'>'+
+   '<span>'+escapeHtml(p.name||'')+(String(p.id)===leaderId?' (руководитель)':'')+(p.dismissed?' (уволен)':'')+
    '<small>'+escapeHtml(structurePath(structure,p.structureId)||'Без подразделения')+'</small></span></label>').join('');
   q('#v2-structure-pick-count').textContent='Выбрано: '+pendingStructureMembers.size;
   q('#v2-structure-pick-list').onchange=e=>{
@@ -389,8 +390,8 @@ function openStructurePicker(){
  q('#v2-structure-pick-search').oninput=render;
  q('#v2-structure-pick-save').onclick=()=>{
   const before=new Set(staff.filter(p=>String(p.structureId)===String(node.id)).map(p=>String(p.id)));
-  const additions=[...pendingStructureMembers].filter(id=>!before.has(id));
-  const removals=[...before].filter(id=>!pendingStructureMembers.has(id));
+  const additions=[...pendingStructureMembers].filter(id=>id!==leaderId&&!before.has(id));
+  const removals=[...before].filter(id=>id!==leaderId&&!pendingStructureMembers.has(id));
   if(!additions.length&&!removals.length){q('#v2-structure-pick-dialog').close();return;}
   if(!confirm('Изменить состав «'+node.name+'»? Добавить: '+additions.length+', открепить: '+removals.length+'.'))return;
   const adding=new Set(additions),removing=new Set(removals);
