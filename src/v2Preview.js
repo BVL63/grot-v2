@@ -50,6 +50,10 @@ function draw(){
    ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
    <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,active,staff))}</div>
   </main>
+  <div id="v2-period-menu" class="period-context-menu" role="menu" aria-label="Действия с периодом" hidden>
+   <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
+   <button type="button" role="menuitem" id="v2-menu-delete">Удалить</button>
+  </div>
   <dialog id="v2-audit-dialog">
    <div class="audit-header"><h2>Журнал изменений</h2><button type="button" id="v2-audit-close">Закрыть</button></div>
    <p class="muted">Просмотр по запросу. Не влияет на ввод отпусков.</p>
@@ -91,13 +95,59 @@ function draw(){
    draw();
   }catch(err){alert('История не добавлена: '+err.message);}
  };
- q('.table-wrap').addEventListener('click',e=>{
+ const table=q('.table-wrap');
+ const menu=q('#v2-period-menu');
+ const chosen=node=>records.find(r=>!r.deleted&&String(r.id)===node?.dataset.periodId)||null;
+ let touchTimer=null, touchStart=null, ignoreClick=false;
+ const hideMenu=()=>{menu.hidden=true;};
+ const showMenu=(node,x,y)=>{
+  const rec=chosen(node);if(!rec)return;
+  selected=rec;
+  menu.hidden=false;
+  menu.style.left=Math.max(8,Math.min(x,window.innerWidth-menu.offsetWidth-8))+'px';
+  menu.style.top=Math.max(8,Math.min(y,window.innerHeight-menu.offsetHeight-8))+'px';
+  menu.querySelector('#v2-menu-edit').focus({preventScroll:true});
+ };
+ table.addEventListener('contextmenu',e=>{
   const node=e.target.closest('[data-period-id]');
   if(!node)return;
-  const id=node.dataset.periodId;
-  selected=records.find(r=>String(r.id)===id)||null;
-  if(selected)openEditor(selected);
+  e.preventDefault();
+  clearTimeout(touchTimer);
+  showMenu(node,e.clientX,e.clientY);
  });
+ table.addEventListener('click',e=>{
+  const node=e.target.closest('[data-period-id]');
+  if(ignoreClick){ignoreClick=false;return;}
+  if(!menu.hidden){hideMenu();return;}
+  if(!node)return;
+  const rec=chosen(node);
+  if(rec)openEditor(rec);
+ });
+ table.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='touch')return;
+  const node=e.target.closest('[data-period-id]');
+  if(!node)return;
+  touchStart={x:e.clientX,y:e.clientY};
+  clearTimeout(touchTimer);
+  touchTimer=setTimeout(()=>{
+   ignoreClick=true;showMenu(node,touchStart.x,touchStart.y);
+  },600);
+ });
+ table.addEventListener('pointermove',e=>{
+  if(!touchStart)return;
+  if(Math.abs(e.clientX-touchStart.x)>12||Math.abs(e.clientY-touchStart.y)>12){
+   clearTimeout(touchTimer);touchStart=null;
+  }
+ });
+ const endTouch=()=>{clearTimeout(touchTimer);touchStart=null;};
+ table.addEventListener('pointerup',endTouch);
+ table.addEventListener('pointercancel',endTouch);
+ table.addEventListener('scroll',hideMenu,{passive:true});
+ q('#v2-menu-edit').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec);};
+ q('#v2-menu-delete').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec,{deleting:true});};
+ root.addEventListener('click',e=>{if(!e.target.closest('#v2-period-menu')&&!e.target.closest('[data-period-id]'))hideMenu();});
+ menu.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();e.preventDefault();}});
+ 
 }
 const auditDates=x=>x&&typeof x==='object'?
  escapeHtml([x.start,x.end].filter(Boolean).join(' — ')||JSON.stringify(x)):
@@ -116,10 +166,11 @@ function renderAudit(){
   '<div>Стало: '+auditDates(a.next)+'</div></article>').join(''):
   '<p>По выбранным условиям изменений не найдено.</p>';
 }
-function openEditor(rec){
+function openEditor(rec,{deleting=false}={}){
  selected=rec;
  const form=q('#v2-editor');
- q('#v2-dialog-title').textContent=rec?'Изменить период':'Добавить период';
+ q('#v2-dialog-title').textContent=deleting?'Удалить период':rec?'Изменить период':'Добавить период';
+ q('#v2-save').hidden=deleting;
  form.elements.staffId.value=rec?.staffId||staff[0]?.id||'';
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
@@ -127,6 +178,7 @@ function openEditor(rec){
  form.elements.reason.value='';
  q('#v2-error').textContent=rec?.verificationStatus==='unverified-source'?'Даты перенесены из встроенной истории, не проверены. Для корректировки укажите причину.':'';
  q('#v2-delete').hidden=!rec;
+ if(deleting)q('#v2-error').textContent='Укажите причину и подтвердите удаление периода.';
  q('#v2-save').onclick=()=>{
   try{
    const meta={actor:'Пользователь тестового экрана',reason:form.elements.reason.value.trim(),at:new Date().toISOString()};
@@ -147,6 +199,7 @@ function openEditor(rec){
   try{
    const reason=form.elements.reason.value.trim();
    if(!reason)throw new Error('Укажите причину удаления');
+   if(!confirm('Удалить отпуск '+(rec.staffName||'сотрудника')+' с '+dateFmt(rec.period.start)+' по '+dateFmt(rec.period.end)+'?'))return;
    records=removeVacationPeriod(records,rec.id,editPolicy(),{
     actor:'Пользователь тестового экрана',reason,at:new Date().toISOString()});
    dirty=true;q('#v2-dialog').close();draw();
