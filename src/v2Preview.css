@@ -274,3 +274,56 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  font-size:12px;
  line-height:15px;
 }
+
+
+/* Даты переходящего отпуска теперь внутри пропорциональной голубой полосы. */
+.grot-unified-year .vacation-period.proportional-period{
+ position:relative;
+ display:block;
+ padding:0;
+ height:56px;
+ min-height:56px;
+ background:transparent;
+ border:0;
+ overflow:visible;
+}
+.grot-unified-year .vacation-period.proportional-period:hover{background:transparent}
+.grot-unified-year .proportional-period .proportional-fill{
+ position:absolute;
+ left:var(--bar-left);
+ right:var(--bar-right);
+ top:2px;
+ bottom:2px;
+ height:auto;
+ min-height:50px;
+ min-width:min(98px,calc(100% - var(--bar-left)));
+ max-width:calc(100% - var(--bar-left));
+ border:1px solid #7193bc;
+ border-radius:5px;
+ background:#e4eef9;
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ gap:2px;
+ padding:2px 3px;
+ box-sizing:border-box;
+ pointer-events:none;
+}
+.grot-unified-year .proportional-period:hover .proportional-fill{background:#cde1fa}
+.grot-unified-year .proportional-period .proportional-period-label{
+ display:block;
+ font-size:10px;
+ line-height:1.15;
+ white-space:normal;
+ text-align:center;
+ overflow-wrap:normal;
+}
+.grot-unified-year .proportional-period .proportional-period-label span{
+ font-size:10px;
+}
+.grot-unified-year .proportional-period .proportional-fill strong{
+ font-size:11px;
+ line-height:1.15;
+ white-space:nowrap;
+}
