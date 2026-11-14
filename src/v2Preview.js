@@ -99,6 +99,10 @@ function draw(){
    <div class="directory-toolbar">
     <input id="v2-directory-search" type="search" placeholder="Поиск по названию или ФИО" aria-label="Поиск">
     <button type="button" id="v2-directory-add">Добавить</button>
+    <button type="button" id="v2-structure-edit" hidden>Изменить</button>
+    <button type="button" id="v2-structure-delete" hidden>Удалить</button>
+    <button type="button" id="v2-structure-pick" hidden>Выбрать сотрудников</button>
+    <button type="button" id="v2-structure-newstaff" hidden>Новый сотрудник</button>
     <button type="button" id="v2-directory-load">Загрузить структуру</button>
     <button type="button" id="v2-directory-unassigned">Без подразделения</button>
     <button type="button" id="v2-directory-assign" hidden>Назначить выбранных</button>
@@ -106,6 +110,14 @@ function draw(){
     <span id="v2-directory-count" class="muted"></span>
    </div>
    <div id="v2-directory-content" class="directory-content"></div>
+   <p id="v2-directory-attached" class="directory-attached" aria-live="polite"></p>
+  </dialog>
+  <dialog id="v2-structure-pick-dialog">
+   <div class="directory-heading"><h2>Выбрать сотрудников</h2><button type="button" id="v2-structure-pick-close">Закрыть</button></div>
+   <p id="v2-structure-pick-description"></p>
+   <input id="v2-structure-pick-search" type="search" placeholder="Поиск по ФИО" aria-label="Поиск сотрудников">
+   <div id="v2-structure-pick-list" class="directory-pick-list"></div>
+   <div class="directory-pick-footer"><button type="button" id="v2-structure-pick-save">Сохранить состав</button><span id="v2-structure-pick-count" class="muted"></span></div>
   </dialog>
   <dialog id="v2-directory-editor">
    <form method="dialog" id="v2-directory-form">
@@ -171,6 +183,15 @@ function draw(){
  q('#v2-directory-close').onclick=()=>q('#v2-directory-dialog').close();
  q('#v2-directory-search').oninput=renderDirectory;
  q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
+ q('#v2-structure-edit').onclick=()=>{if(selectedStructureId)editDirectoryItem(selectedStructureId);};
+ q('#v2-structure-delete').onclick=removeSelectedStructure;
+ q('#v2-structure-pick').onclick=openStructurePicker;
+ q('#v2-structure-newstaff').onclick=()=>{
+  if(!selectedStructureId)return;
+  newStaffStructureId=selectedStructureId;
+  directoryMode='staff';editDirectoryItem(null);directoryMode='structure';
+ };
+ q('#v2-structure-pick-close').onclick=()=>q('#v2-structure-pick-dialog').close();
  q('#v2-directory-unassigned').onclick=()=>{directoryUnassignedOnly=!directoryUnassignedOnly;renderDirectory();};
  q('#v2-directory-assign').onclick=bulkAssignDirectory;
  q('#v2-directory-load').onclick=()=>q('#v2-directory-file').click();
@@ -259,15 +280,21 @@ function draw(){
  
 }
 let directoryMode='structure';
+let selectedStructureId=null;
+let newStaffStructureId=null;
+const collapsedStructure=new Set();
+let pendingStructureMembers=new Set();
 let directoryUnassignedOnly=false;
 function openDirectory(mode){
  directoryMode=mode;
  directoryUnassignedOnly=false;
  q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
  q('#v2-directory-load').hidden=mode!=='structure';
+ for(const key of ['edit','delete','pick','newstaff'])q('#v2-structure-'+key).hidden=mode!=='structure';
  q('#v2-directory-unassigned').hidden=mode!=='staff';
  q('#v2-directory-assign').hidden=mode!=='staff';
  q('#v2-directory-search').value='';
+ if(mode==='structure'&&!structure.some(n=>String(n.id)===String(selectedStructureId)))selectedStructureId=null;
  renderDirectory();
  q('#v2-directory-dialog').showModal();
 }
@@ -279,12 +306,29 @@ function renderDirectory(){
  const normalized=value=>String(value||'').toLocaleLowerCase('ru').replace(/ё/g,'е');
  let rows=[];
  if(directoryMode==='structure'){
-  rows=structureRows(structure).filter(n=>normalized([n.name,n.code,n.type].join(' ')).includes(term));
+  const allRows=structureRows(structure);
+  const matching=new Set(allRows.filter(n=>normalized([n.name,n.code,n.type].join(' ')).includes(term)).map(n=>String(n.id)));
+  rows=term?allRows.filter(n=>matching.has(String(n.id))):
+    allRows.filter(n=>{
+     let parent=n.parentId;
+     while(parent!=null){
+      if(collapsedStructure.has(String(parent)))return false;
+      parent=structure.find(x=>String(x.id)===String(parent))?.parentId??null;
+     }
+     return true;
+    });
+  const children=new Set(structure.map(n=>String(n.parentId)));
+  const leader=n=>staff.find(p=>String(p.id)===String(n.leaderId))?.name||'';
   q('#v2-directory-content').innerHTML=structure.length
-   ?'<table class="directory-table"><thead><tr><th>Код</th><th>Структура</th><th>Сотрудников</th><th></th></tr></thead><tbody>'+
-    rows.map(n=>'<tr><td>'+escapeHtml(n.code||'')+'</td><td style="padding-left:'+(12+n.depth*17)+'px">'+escapeHtml(n.name)+'</td>'+
-    '<td>'+staffForStructure(staff,structure,n.id).length+'</td><td><button type="button" data-edit-structure="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>'
+   ?'<table class="directory-table directory-tree"><thead><tr><th>Наименование</th><th>Код</th><th>Руководитель</th><th>Сотрудников</th></tr></thead><tbody>'+
+    rows.map(n=>'<tr data-structure-row="'+escapeHtml(n.id)+'" class="'+(String(n.id)===String(selectedStructureId)?'selected-structure':'')+'">'+
+     '<td style="padding-left:'+(10+n.depth*21)+'px">'+(children.has(String(n.id))?'<button class="tree-toggle" type="button" data-toggle-structure="'+escapeHtml(n.id)+'" aria-label="'+(collapsedStructure.has(String(n.id))?'Развернуть':'Свернуть')+'">'+(collapsedStructure.has(String(n.id))?'+':'−')+'</button>':'<span class="tree-placeholder"></span>')+escapeHtml(n.name)+'</td>'+
+     '<td>'+escapeHtml(n.code||'')+'</td><td>'+escapeHtml(leader(n))+'</td><td>'+staffForStructure(staff,structure,n.id).length+'</td></tr>').join('')+'</tbody></table>'
    :'<p>Структура пока не загружена. Загрузите резервную копию основного ГРОТ или добавьте первый элемент.</p>';
+  const current=structure.find(n=>String(n.id)===String(selectedStructureId));
+  const attached=current?staffForStructure(staff,structure,current.id):[];
+  q('#v2-directory-attached').textContent=current?'Закреплены ('+attached.length+'): '+(attached.map(p=>p.name).join(', ')||'нет сотрудников'):'Выберите элемент структуры';
+  for(const key of ['edit','delete','pick','newstaff'])q('#v2-structure-'+key).disabled=!current;
  }else{
   const without=new Set(unassigned.map(x=>String(x.id)));
   rows=[...staff].sort((a,b)=>String(a.lastName||a.name).localeCompare(String(b.lastName||b.name),'ru'))
@@ -300,11 +344,63 @@ function renderDirectory(){
  if(allPick)allPick.onchange=()=>{for(const item of root.querySelectorAll('.v2-directory-pick'))item.checked=allPick.checked;};
 
  q('#v2-directory-content').onclick=e=>{
-  const node=e.target.closest('[data-edit-structure],[data-edit-staff]');
-  if(!node)return;
-  const id=node.dataset.editStructure??node.dataset.editStaff;
-  editDirectoryItem(id);
+  const toggle=e.target.closest('[data-toggle-structure]');
+  if(toggle){
+   const id=toggle.dataset.toggleStructure;
+   if(collapsedStructure.has(id))collapsedStructure.delete(id);else collapsedStructure.add(id);
+   renderDirectory();return;
+  }
+  const row=e.target.closest('[data-structure-row]');
+  if(row){selectedStructureId=row.dataset.structureRow;renderDirectory();return;}
+  const node=e.target.closest('[data-edit-staff]');
+  if(node)editDirectoryItem(node.dataset.editStaff);
  };
+}
+function removeSelectedStructure(){
+ const node=structure.find(n=>String(n.id)===String(selectedStructureId));if(!node)return;
+ if(structure.some(n=>String(n.parentId)===String(node.id))){alert('Сначала удалите вложенные элементы структуры');return;}
+ if(staffForStructure(staff,structure,node.id).length){alert('Сначала переназначьте сотрудников этого элемента');return;}
+ if(!confirm('Удалить «'+node.name+'»?'))return;
+ structure=structure.filter(n=>String(n.id)!==String(node.id));selectedStructureId=null;
+ dirty=true;persistDraft();renderDirectory();
+}
+function openStructurePicker(){
+ const node=structure.find(n=>String(n.id)===String(selectedStructureId));if(!node)return;
+ pendingStructureMembers=new Set(staff.filter(p=>String(p.structureId)===String(node.id)).map(p=>String(p.id)));
+ q('#v2-structure-pick-description').textContent='Состав: '+structurePath(structure,node.id)+' (непосредственно в этом элементе)';
+ q('#v2-structure-pick-search').value='';
+ const render=()=>{
+  const search=q('#v2-structure-pick-search').value.toLocaleLowerCase('ru').replace(/ё/g,'е');
+  const visible=[...staff].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))
+   .filter(p=>String(p.name||'').toLocaleLowerCase('ru').replace(/ё/g,'е').includes(search));
+  q('#v2-structure-pick-list').innerHTML=visible.map(p=>
+   '<label><input type="checkbox" data-structure-member="'+escapeHtml(p.id)+'"'+(pendingStructureMembers.has(String(p.id))?' checked':'')+'>'+
+   '<span>'+escapeHtml(p.name||'')+(p.dismissed?' (уволен)':'')+
+   '<small>'+escapeHtml(structurePath(structure,p.structureId)||'Без подразделения')+'</small></span></label>').join('');
+  q('#v2-structure-pick-count').textContent='Выбрано: '+pendingStructureMembers.size;
+  q('#v2-structure-pick-list').onchange=e=>{
+   const cb=e.target.closest('[data-structure-member]');if(!cb)return;
+   if(cb.checked)pendingStructureMembers.add(cb.dataset.structureMember);else pendingStructureMembers.delete(cb.dataset.structureMember);
+   q('#v2-structure-pick-count').textContent='Выбрано: '+pendingStructureMembers.size;
+  };
+ };
+ q('#v2-structure-pick-search').oninput=render;
+ q('#v2-structure-pick-save').onclick=()=>{
+  const before=new Set(staff.filter(p=>String(p.structureId)===String(node.id)).map(p=>String(p.id)));
+  const additions=[...pendingStructureMembers].filter(id=>!before.has(id));
+  const removals=[...before].filter(id=>!pendingStructureMembers.has(id));
+  if(!additions.length&&!removals.length){q('#v2-structure-pick-dialog').close();return;}
+  if(!confirm('Изменить состав «'+node.name+'»? Добавить: '+additions.length+', открепить: '+removals.length+'.'))return;
+  const adding=new Set(additions),removing=new Set(removals);
+  staff=staff.map(p=>{
+   const id=String(p.id);
+   if(adding.has(id))return {...p,structureId:node.id,department:structurePath(structure,node.id)};
+   if(removing.has(id))return {...p,structureId:'',department:''};
+   return p;
+  });
+  dirty=true;persistDraft();q('#v2-structure-pick-dialog').close();renderDirectory();
+ };
+ render();q('#v2-structure-pick-dialog').showModal();
 }
 function bulkAssignDirectory(){
  const selected=[...q('#v2-directory-content').querySelectorAll('.v2-directory-pick:checked')].map(n=>n.value);
@@ -341,10 +437,12 @@ function editDirectoryItem(id){
   fields.innerHTML='<label>Наименование<input name="name" required value="'+escapeHtml(row?.name||'')+'"></label>'+
    '<label>Код<input name="code" value="'+escapeHtml(row?.code||'')+'"></label>'+
    '<label>Тип<select name="type">'+['organization','division','department','brigade'].map(x=>'<option value="'+x+'"'+(x===(row?.type||'department')?' selected':'')+'>'+({organization:'Организация',division:'Подразделение',department:'Отдел',brigade:'Группа'}[x])+'</option>').join('')+'</select></label>'+
-   '<label>Родитель<select name="parentId">'+parentOptions+'</select></label>';
+   '<label>Родитель<select name="parentId">'+parentOptions+'</select></label>'+
+   '<label>Руководитель<select name="leaderId"><option value="">— Не назначен —</option>'+[...staff].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru')).map(p=>'<option value="'+escapeHtml(p.id)+'"'+(String(row?.leaderId||'')===String(p.id)?' selected':'')+'>'+escapeHtml(p.name)+'</option>').join('')+'</select></label>'+
+   '<label>Должность руководителя<input name="leaderTitle" value="'+escapeHtml(row?.leaderTitle||'')+'"></label>';
  }else{
   const options='<option value="">— Не назначено —</option>'+structureRows(structure)
-   .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.structureId||'')===String(n.id)?' selected':'')+'>'+escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
+   .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.structureId||newStaffStructureId||'')===String(n.id)?' selected':'')+'>'+escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
   const inp=(key,label)=>'<label>'+label+'<input name="'+key+'" value="'+escapeHtml(['hireDate','dismissalDate'].includes(key)?displayDate(row?.[key]):row?.[key]||'')+'"'+(['hireDate','dismissalDate'].includes(key)?' placeholder="дд.мм.гг" maxlength="8" inputmode="numeric"':'')+'></label>';
   fields.innerHTML='<div class="directory-name-fields">'+inp('lastName','Фамилия')+inp('firstName','Имя')+inp('middleName','Отчество')+'</div>'+
     inp('position','Должность')+
@@ -357,14 +455,14 @@ function editDirectoryItem(id){
   try{
    const get=k=>form.elements.namedItem(k)?.value?.trim()||'';
    if(isStructure){
-    const entry={...(row||{}),id:row?.id||'st-v2-'+crypto.randomUUID(),name:get('name'),code:get('code'),type:get('type'),parentId:get('parentId')||null};
+    const entry={...(row||{}),id:row?.id||'st-v2-'+crypto.randomUUID(),name:get('name'),code:get('code'),type:get('type'),parentId:get('parentId')||null,leaderId:get('leaderId'),leaderTitle:get('leaderTitle')};
     structure=upsertStructure(structure,entry);
    }else{
     const entry={...(row||{}),id:row?.id||'staff-v2-'+crypto.randomUUID(),lastName:get('lastName'),firstName:get('firstName'),middleName:get('middleName'),
      position:get('position'),structureId:get('structureId'),allowance:Number(get('allowance')),hireDate:parseDisplayDate(get('hireDate')),dismissalDate:parseDisplayDate(get('dismissalDate')),
      dismissed:form.elements.namedItem('dismissed').checked};
     entry.department=entry.structureId?structurePath(structure,entry.structureId):entry.department||'';
-    staff=upsertStaff(staff,entry);
+    staff=upsertStaff(staff,entry);newStaffStructureId=null;
    }
    dirty=true;persistDraft();q('#v2-directory-editor').close();renderDirectory();
   }catch(err){q('#v2-directory-error').textContent=err.message;}
