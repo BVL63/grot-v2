@@ -192,12 +192,12 @@ export function renderUnifiedYearTable(view){
   return lanes.map((lane,i)=>'<tr class="vacation-lane '+(lanes.length===1?'lane-single':i===0?'lane-first':i===lanes.length-1?'lane-last':'lane-middle')+'">'+
    (i===0?'<th scope="row" rowspan="'+lanes.length+'" title="'+esc(row.name)+'">'+esc(row.shortName||shortStaffName(row))+'</th>':'')+
    renderLane(lane)+
-   (i===0?'<td class="employee-year-total" rowspan="'+lanes.length+'">'+sum+'</td>':'')+
+   (i===0?'<td class="employee-year-total" rowspan="'+lanes.length+'">'+(sum||'')+'</td>':'')+
    '</tr>').join('');
  }).join('');
  const footer='<tr class="year-totals-row"><th scope="row" title="Количество сотрудников в отпуске по месяцам">В отпуске, чел.</th>'+
-  totals.months.map(count=>'<td title="Сотрудников в отпуске: '+count+'">'+count+'</td>').join('')+
-  '<td class="year-grand-total" title="Всего отпускных дней">'+totals.total+'</td></tr>';
+  totals.months.map(count=>'<td title="Сотрудников в отпуске: '+count+'">'+(count||'')+'</td>').join('')+
+  '<td class="year-grand-total" title="Всего отпускных дней">'+(totals.total||'')+'</td></tr>';
  return '<table class="annual-table grot-unified-year"><thead><tr><th scope="col">Сотрудник</th>'+header+
  '<th scope="col" class="year-total-header">Всего дней</th></tr></thead><tbody>'+body+
  '</tbody><tfoot>'+footer+'</tfoot></table>';
