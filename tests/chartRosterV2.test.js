@@ -43,3 +43,20 @@ test('Импорт, экспорт и локальная копия сохран
  assert.deepEqual(data.charts,charts);
  assert.deepEqual(chartMemberIdsByStructure(staff,structure,'garage'),['1']);
 });
+
+test('Выбор звеньев включает новых сотрудников автоматически, исключения сохраняются',()=>{
+ const base=saveChart([],{id:'tree',name:'Терапевтическое отделение',year:2027,
+  staffIds:['1'],structureIds:['garage'],includeIds:['3'],excludeIds:['2']},staff,structure);
+ let view=staffInChart(staff,records,base,'tree',2027,structure);
+ assert.deepEqual(view.staff.map(x=>x.id),['1','3']);
+ const expanded=[...staff,{id:'4',name:'Новый водитель',structureId:'garage'}];
+ view=staffInChart(expanded,records,base,'tree',2027,structure);
+ assert.deepEqual(view.staff.map(x=>x.id),['1','3','4']);
+ const changed=[...base[0].staffIds,'4'];
+ assert.equal(base[0].staffIds.includes('4'),false);
+ assert.deepEqual(changed,['1','4']);
+});
+test('Старые сохранённые графики с staffIds не теряют состав',()=>{
+ const old=validateCharts([{id:'old',name:'График',year:2027,staffIds:['1','3']}],staff);
+ assert.deepEqual(staffInChart(staff,records,old,'old',2027,structure).staff.map(x=>x.id),['1','3']);
+});
