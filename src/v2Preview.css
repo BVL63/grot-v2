@@ -602,3 +602,26 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
 .grot-daily-expanded .expanded-month-heading{background:#dbe9fa}
 .grot-daily-expanded .year-total-header,.grot-daily-expanded .employee-year-total,
 .grot-daily-expanded .year-grand-total{min-width:88px;width:88px}
+
+
+/* Исправление: старое правило position:relative для заголовков годов
+   в сочетании с top:39px сдвигало номера дней на строку сотрудника.
+   В раскрытом месяце обе строки шапки остаются в потоке таблицы. */
+.grot-unified-year.grot-daily-expanded thead tr:first-child th,
+.grot-unified-year.grot-daily-expanded thead tr:nth-child(2) th{
+ position:static;
+ top:auto;
+ left:auto;
+ z-index:auto;
+}
+.grot-unified-year.grot-daily-expanded thead tr:nth-child(2) th{
+ height:36px;
+ vertical-align:middle;
+ padding:6px 0;
+ background:#edf2f8;
+}
+.grot-unified-year.grot-daily-expanded thead tr:first-child th:first-child{
+ position:sticky;
+ left:0;
+ z-index:4;
+}
