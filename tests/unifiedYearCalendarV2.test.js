@@ -74,3 +74,14 @@ test('Для перехода через три месяца полоса учи
  assert.ok(Math.abs(o.left-16.129)<0.001);
  assert.ok(Math.abs(o.right-17.2043)<0.001);
 });
+
+test('У переходящих отпусков есть обе формы дат: в строку и в три строки',()=>{
+ const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[
+  rec('short','2027-04-30','2027-05-02'),
+  rec('long','2027-08-01','2027-09-20')
+ ],staff));
+ assert.match(html,/class="period-date-wide">30\.04\.27 – 02\.05\.27/);
+ assert.match(html,/class="period-date-narrow"><span>30\.04\.27<\/span><span>02\.05\.27<\/span>/);
+ assert.match(html,/class="period-date-wide">01\.08\.27 – 20\.09\.27/);
+ assert.equal((html.match(/data-period-id="/g)||[]).length,2);
+});
