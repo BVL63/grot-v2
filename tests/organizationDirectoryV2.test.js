@@ -30,3 +30,24 @@ test('Структура переживает экспорт, импорт и п
  const raw=makeLocalDraft({...sample,year:2027,source:'Тест',dirty:true});
  assert.deepEqual(parseLocalDraft(raw).structure,structure);
 });
+
+import {unassignedStaff,assignStaffToStructure} from '../src/organizationDirectoryV2.js';
+test('Не привязанные к структуре сотрудники выявляются, включая уволенных',()=>{
+ const people=[...staff,{id:18,name:'Воликов Р.И.',department:'Хозяйственный отдел',audit:[{reason:'История'}],allowance:36},
+ {id:17,name:'Седякин О.С.',structureId:'missing',dismissed:false},
+ {id:14,name:'Ломов В.В.',dismissed:true}];
+ assert.deepEqual(unassignedStaff(people,structure).map(x=>x.id),[18,17,14]);
+ assert.deepEqual(unassignedStaff(people,structure,{includeDismissed:false}).map(x=>x.id),[18,17]);
+});
+test('Массовая привязка не меняет отпуска, группы и историю',()=>{
+ const people=[...staff,{id:18,name:'Воликов Р.И.',department:'Хозяйственный отдел',group:'2',audit:[{reason:'История'}],allowance:36},
+ {id:17,name:'Седякин О.С.',department:'Гараж',group:'1',allowance:36}];
+ const result=assignStaffToStructure(people,structure,[18],'div');
+ assert.equal(result.find(x=>x.id===18).structureId,'div');
+ assert.equal(result.find(x=>x.id===18).department,'Организация → Подразделение 2');
+ assert.equal(result.find(x=>x.id===18).audit[0].reason,'История');
+ assert.equal(result.find(x=>x.id===18).group,'2');
+ assert.equal(result.find(x=>x.id===17).structureId,undefined);
+ assert.equal(people.find(x=>x.id===18).structureId,undefined);
+ assert.throws(()=>assignStaffToStructure(people,structure,[18],'unknown'),/Подразделение/);
+});
