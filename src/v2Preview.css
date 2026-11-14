@@ -548,3 +548,57 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  border-left:2px solid #bbc9da;
  font-size:15px;
 }
+
+
+/* Раскрытие одного месяца по календарным дням. Годовой вид не затронут. */
+.grot-unified-year .month-expand-toggle{
+ display:inline-flex;align-items:center;justify-content:center;gap:4px;
+ width:100%;min-width:0;
+ padding:5px 2px;background:transparent;border:0;border-radius:4px;
+ font:inherit;font-weight:700;color:#173253;cursor:pointer;white-space:nowrap;
+}
+.grot-unified-year .month-expand-toggle:hover,
+.grot-unified-year .month-expand-toggle:focus-visible{
+ background:#d7e6f8;outline:2px solid #7193bc;outline-offset:-2px;
+}
+.grot-daily-expanded{table-layout:auto;width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;}
+.grot-daily-expanded thead th{position:sticky;top:0;z-index:3}
+.grot-daily-expanded thead tr:nth-child(2) th{top:39px}
+.grot-daily-expanded th[scope=row]{z-index:2}
+.grot-daily-expanded tbody .daily-employee-row td{
+ height:42px;min-height:42px;padding:0;
+}
+.grot-daily-expanded .daily-date-heading,
+.grot-daily-expanded .daily-day-cell,
+.grot-daily-expanded tfoot .daily-total-cell{
+ box-sizing:border-box;min-width:34px;width:34px;max-width:34px;
+ padding:4px 0;text-align:center;
+}
+.grot-daily-expanded .daily-day-cell{height:42px!important}
+.grot-daily-expanded .daily-day-cell.daily-on-leave{background:#159f4c}
+.grot-daily-expanded .daily-day-button{
+ border:0;background:transparent;color:white;
+ font-size:13px;font-weight:bold;cursor:pointer;
+ width:100%;height:100%;min-height:39px;padding:0;
+}
+.grot-daily-expanded .daily-day-button:hover{background:#0b853c}
+.grot-daily-expanded .compact-month-heading,
+.grot-daily-expanded .collapsed-month-subheading,
+.grot-daily-expanded .detailed-collapsed-month,
+.grot-daily-expanded .monthly-total-cell{min-width:95px;width:95px;max-width:95px;}
+.grot-daily-expanded .collapsed-month-subheading{height:35px}
+.grot-daily-expanded .detailed-collapsed-month{padding:2px 4px!important;vertical-align:middle}
+.grot-daily-expanded .detailed-compact-period{
+ width:100%;display:block;overflow:hidden;text-overflow:ellipsis;
+ border:1px solid #8ca9ca;background:#e4eef9;color:#173253;
+ border-radius:3px;padding:3px 2px;margin:2px 0;
+ white-space:nowrap;font-size:9px;cursor:pointer;
+}
+.grot-daily-expanded .detailed-compact-period:hover{background:#c9ddf5}
+.grot-daily-expanded tfoot td,.grot-daily-expanded tfoot th{
+ position:sticky;bottom:0;z-index:3;
+}
+.grot-daily-expanded tfoot th{z-index:5}
+.grot-daily-expanded .expanded-month-heading{background:#dbe9fa}
+.grot-daily-expanded .year-total-header,.grot-daily-expanded .employee-year-total,
+.grot-daily-expanded .year-grand-total{min-width:88px;width:88px}
