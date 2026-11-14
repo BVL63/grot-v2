@@ -56,7 +56,11 @@ export function structurePath(nodes,id){
 }
 export function staffForStructure(staff,nodes,id){
  const ids=descendantsOf(nodes,id);
- return staff.filter(p=>ids.has(String(p.structureId)));
+ // Руководитель входит в состав возглавляемого отдела, даже если
+ // в старой копии у него не заполнено поле structureId.
+ const leaders=new Set(nodes.filter(n=>ids.has(String(n.id))&&n.leaderId!=null&&String(n.leaderId).trim())
+  .map(n=>String(n.leaderId)));
+ return staff.filter(p=>ids.has(String(p.structureId))||leaders.has(String(p.id)));
 }
 export function upsertStaff(staff,entry){
  if(!String(entry.lastName||'').trim())throw new Error('Укажите фамилию сотрудника');
@@ -70,7 +74,8 @@ export function upsertStaff(staff,entry){
 /** All unassigned staff, including those with IDs that no longer exist in structure. */
 export function unassignedStaff(staff,nodes,{includeDismissed=true}={}){
  const ids=new Set(nodes.map(n=>String(n.id)));
- return staff.filter(s=>(includeDismissed||!s.dismissed)&&(!s.structureId||!ids.has(String(s.structureId))));
+ const leaderIds=new Set(nodes.filter(n=>n.leaderId!=null&&String(n.leaderId).trim()).map(n=>String(n.leaderId)));
+ return staff.filter(s=>(includeDismissed||!s.dismissed)&&(!s.structureId||!ids.has(String(s.structureId)))&&!leaderIds.has(String(s.id)));
 }
 /** Assign a selected set to ONE structure node, leaving all other fields untouched. */
 export function assignStaffToStructure(staff,nodes,staffIds,structureId){
