@@ -110,6 +110,7 @@ function draw(){
     <button type="button" id="v2-structure-delete" hidden>Удалить</button>
     <button type="button" id="v2-structure-pick" hidden>Выбрать сотрудников</button>
     <button type="button" id="v2-structure-newstaff" hidden>Новый сотрудник</button>
+    <button type="button" id="v2-structure-chart" hidden>Открыть график</button>
     <button type="button" id="v2-directory-load">Загрузить структуру</button>
     <button type="button" id="v2-directory-unassigned">Без подразделения</button>
     <button type="button" id="v2-directory-assign" hidden>Назначить выбранных</button>
@@ -193,6 +194,7 @@ function draw(){
  q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
  q('#v2-structure-edit').onclick=()=>{if(selectedStructureId)editDirectoryItem(selectedStructureId);};
  q('#v2-structure-delete').onclick=removeSelectedStructure;
+ q('#v2-structure-chart').onclick=()=>{if(!selectedStructureId)return;selectedGraphId=selectedStructureId;q('#v2-directory-dialog').close();draw();};
  q('#v2-structure-pick').onclick=openStructurePicker;
  q('#v2-structure-newstaff').onclick=()=>{
   if(!selectedStructureId)return;
@@ -302,7 +304,7 @@ function openDirectory(mode){
  directoryUnassignedOnly=false;
  q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
  q('#v2-directory-load').hidden=mode!=='structure';
- for(const key of ['edit','delete','pick','newstaff'])q('#v2-structure-'+key).hidden=mode!=='structure';
+ for(const key of ['edit','delete','pick','newstaff','chart'])q('#v2-structure-'+key).hidden=mode!=='structure';
  q('#v2-directory-unassigned').hidden=mode!=='staff';
  q('#v2-directory-assign').hidden=mode!=='staff';
  q('#v2-directory-search').value='';
@@ -506,7 +508,7 @@ function openEditor(rec,{deleting=false}={}){
  const form=q('#v2-editor');
  q('#v2-dialog-title').textContent=deleting?'Удалить период':rec?'Изменить период':'Добавить период';
  q('#v2-save').hidden=deleting;
- form.elements.staffId.value=rec?.staffId||q('#v2-chart').value&&selectDepartmentGraph(staff,records,structure,selectedGraphId).staff[0]?.id||staff[0]?.id||'';
+ form.elements.staffId.value=rec?.staffId||form.elements.staffId.options[0]?.value||'';
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
