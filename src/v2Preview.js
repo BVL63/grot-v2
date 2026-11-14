@@ -6,6 +6,7 @@ import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure} from './organizationDirectoryV2.js';
+import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -56,7 +57,7 @@ const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 const editPolicy=()=>({year,readOnly:false,canEditPlan:true,canCorrect:true});
-function dateFmt(s){return s?s.slice(8)+'.'+s.slice(5,7)+'.'+s.slice(0,4):'—';}
+function dateFmt(s){return displayDate(s)||'—';}
 function draw(){
  const years=[...new Set([...baseYears,...records.map(r=>Number(r.year)).filter(Number.isInteger)])].sort((a,b)=>a-b);
  const active=records.filter(r=>!r.deleted);
@@ -136,8 +137,8 @@ function draw(){
      <p id="v2-calendar-summary" class="calendar-summary" aria-live="polite"></p>
     </div>
     <div class="calendar-date-fields">
-     <label>Начало <input name="start" type="date" required></label>
-     <label>Конец <input name="end" type="date" required></label>
+     <label>Начало <input name="startDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="start" type="hidden"></label>
+     <label>Конец <input name="endDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="end" type="hidden"></label>
      <label>Дней <input name="days" type="number" min="1" max="3660" step="1" inputmode="numeric" required></label>
     </div>
     <p class="calendar-help">Выберите начало и конец в календаре — дни рассчитаются сами. Или введите начало и количество дней — конец рассчитается автоматически. Праздничные дни не учитываются.</p>
@@ -344,12 +345,12 @@ function editDirectoryItem(id){
  }else{
   const options='<option value="">— Не назначено —</option>'+structureRows(structure)
    .map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(row?.structureId||'')===String(n.id)?' selected':'')+'>'+escapeHtml('  '.repeat(n.depth)+n.name)+'</option>').join('');
-  const inp=(key,label)=>'<label>'+label+'<input name="'+key+'" value="'+escapeHtml(row?.[key]||'')+'"></label>';
+  const inp=(key,label)=>'<label>'+label+'<input name="'+key+'" value="'+escapeHtml(['hireDate','dismissalDate'].includes(key)?displayDate(row?.[key]):row?.[key]||'')+'"'+(['hireDate','dismissalDate'].includes(key)?' placeholder="дд.мм.гг" maxlength="8" inputmode="numeric"':'')+'></label>';
   fields.innerHTML='<div class="directory-name-fields">'+inp('lastName','Фамилия')+inp('firstName','Имя')+inp('middleName','Отчество')+'</div>'+
     inp('position','Должность')+
     '<label>Место работы<select name="structureId">'+options+'</select></label>'+
     '<label>Дней отпуска<input name="allowance" type="number" min="0" max="365" value="'+escapeHtml(row?.allowance??36)+'"></label>'+
-    '<div class="directory-name-fields">'+inp('hireDate','Принят (гггг-мм-дд)')+inp('dismissalDate','Уволен (гггг-мм-дд)')+'</div>'+
+    '<div class="directory-name-fields">'+inp('hireDate','Принят (дд.мм.гг)')+inp('dismissalDate','Уволен (дд.мм.гг)')+'</div>'+
     '<label class="directory-checkbox"><input type="checkbox" name="dismissed" '+(row?.dismissed?'checked':'')+'> Уволен(а)</label>';
  }
  q('#v2-directory-save').onclick=()=>{
@@ -360,7 +361,7 @@ function editDirectoryItem(id){
     structure=upsertStructure(structure,entry);
    }else{
     const entry={...(row||{}),id:row?.id||'staff-v2-'+crypto.randomUUID(),lastName:get('lastName'),firstName:get('firstName'),middleName:get('middleName'),
-     position:get('position'),structureId:get('structureId'),allowance:Number(get('allowance')),hireDate:get('hireDate'),dismissalDate:get('dismissalDate'),
+     position:get('position'),structureId:get('structureId'),allowance:Number(get('allowance')),hireDate:parseDisplayDate(get('hireDate')),dismissalDate:parseDisplayDate(get('dismissalDate')),
      dismissed:form.elements.namedItem('dismissed').checked};
     entry.department=entry.structureId?structurePath(structure,entry.structureId):entry.department||'';
     staff=upsertStaff(staff,entry);
@@ -371,7 +372,7 @@ function editDirectoryItem(id){
  q('#v2-directory-editor').showModal();
 }
 const auditDates=x=>x&&typeof x==='object'?
- escapeHtml([x.start,x.end].filter(Boolean).join(' — ')||JSON.stringify(x)):
+ escapeHtml([x.start,x.end].filter(Boolean).map(displayDate).join(' — ')||JSON.stringify(x)):
  escapeHtml(x===null?'—':String(x));
 function renderAudit(){
  const dialog=q('#v2-audit-dialog');if(!dialog)return;
@@ -381,7 +382,7 @@ function renderAudit(){
  dialog.querySelector('#v2-audit-count').textContent='Записей: '+found.length;
  dialog.querySelector('#v2-audit-results').innerHTML=found.length?
   found.map(a=>'<article class="audit-entry"><div><strong>'+escapeHtml(a.employee)+
-  '</strong> · '+escapeHtml(a.year)+' · '+escapeHtml(a.date)+'</div>'+
+  '</strong> · '+escapeHtml(a.year)+' · '+escapeHtml(displayTimestamp(a.date))+'</div>'+
   '<div>Кто: '+escapeHtml(a.actor)+' · Причина: '+escapeHtml(a.reason)+'</div>'+
   '<div>Было: '+auditDates(a.previous)+'</div>'+
   '<div>Стало: '+auditDates(a.next)+'</div></article>').join(''):
@@ -396,11 +397,22 @@ function openEditor(rec,{deleting=false}={}){
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
+ const syncShownDates=()=>{
+  form.elements.startDisplay.value=displayDate(form.elements.start.value);
+  form.elements.endDisplay.value=displayDate(form.elements.end.value);
+ };
+ const readShownDate=(name)=>{
+  const result=parseDisplayDate(form.elements[name+'Display'].value);
+  form.elements[name].value=result;
+  form.elements[name+'Display'].value=displayDate(result);
+ };
+ syncShownDates();
  form.elements.days.value=form.elements.start.value&&form.elements.end.value
   ?vacationDays(form.elements.start.value,form.elements.end.value):'';
  let calendarAnchor=(form.elements.start.value||year+'-01-01').slice(0,7);
  let calendarNext='start';
  const updateCalendar=()=>{
+  syncShownDates();
   const start=form.elements.start.value,end=form.elements.end.value;
   q('#v2-calendar-months').innerHTML=renderRangeCalendar(start,end,calendarAnchor);
   q('#v2-calendar-hint').textContent=calendarNext==='start'?'Нажмите начало отпуска':'Нажмите конец отпуска';
@@ -429,7 +441,9 @@ function openEditor(rec,{deleting=false}={}){
    ?vacationDays(form.elements.start.value,form.elements.end.value):'';
   updateCalendar();
  };
- form.elements.start.onchange=()=>{
+ form.elements.startDisplay.onchange=()=>{
+  try{readShownDate('start');q('#v2-error').textContent='';}
+  catch(err){q('#v2-error').textContent=err.message;return;}
   const start=form.elements.start.value;
   // После смены начала сохраняем указанную продолжительность.
   if(start&&form.elements.days.value){
@@ -442,7 +456,9 @@ function openEditor(rec,{deleting=false}={}){
   calendarNext=start&&!form.elements.end.value?'end':'start';
   updateCalendar();
  };
- form.elements.end.onchange=()=>{
+ form.elements.endDisplay.onchange=()=>{
+  try{readShownDate('end');q('#v2-error').textContent='';}
+  catch(err){q('#v2-error').textContent=err.message;return;}
   const start=form.elements.start.value,end=form.elements.end.value;
   if(start&&end&&end<start)q('#v2-error').textContent='Конец отпуска должен быть не раньше начала';
   else q('#v2-error').textContent='';
@@ -481,6 +497,8 @@ function openEditor(rec,{deleting=false}={}){
  if(deleting)q('#v2-error').textContent='Укажите причину и подтвердите удаление периода.';
  q('#v2-save').onclick=()=>{
   try{
+   readShownDate('start');readShownDate('end');
+   if(!form.elements.start.value||!form.elements.end.value)throw new Error('Заполните начало и конец отпуска');
    const meta={actor:'Пользователь тестового экрана',reason:selectedReason(),at:new Date().toISOString()};
    if(rec)records=editVacationPeriod(records,rec.id,{
     start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
