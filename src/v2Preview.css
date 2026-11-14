@@ -327,3 +327,23 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  line-height:1.15;
  white-space:nowrap;
 }
+
+
+/* Единое вертикальное центрирование всех отпусков внутри строки. */
+.grot-unified-year tbody tr.vacation-lane td{
+ position:relative;
+ height:64px;
+ vertical-align:middle;
+}
+.grot-unified-year tbody tr.vacation-lane td > .vacation-period{
+ position:absolute;
+ top:50%;
+ left:3px;
+ width:calc(100% - 6px);
+ transform:translateY(-50%);
+ margin:0;
+}
+.grot-unified-year tbody tr.vacation-lane td > .vacation-period.proportional-period{
+ height:56px;
+ min-height:56px;
+}
