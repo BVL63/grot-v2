@@ -33,6 +33,7 @@ let records=[
 ];
 let year=2027,selected=null,dirty=false,loadedSource='Демонстрационные данные';
 let selectedGraphId='';
+let expandedMonth=null;
 let charts=[];
 let originalImport=null,importReport='',historyReview=null;
 let localSaveStatus='Локальное сохранение не проверено';
@@ -101,7 +102,7 @@ function draw(){
    <input id="v2-file" type="file" accept=".json,application/json" hidden>
    <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
    ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
-   <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,graph.records,graph.staff))}</div>
+   <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,graph.records,graph.staff),{expandedMonth})}</div>
   </main>
   <div id="v2-period-menu" class="period-context-menu" role="menu" aria-label="Действия с периодом" hidden>
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
@@ -268,6 +269,18 @@ function draw(){
   }catch(err){alert('История не добавлена: '+err.message);}
  };
  const table=q('.table-wrap');
+ table.addEventListener('click',e=>{
+  const toggle=e.target.closest('[data-expand-month]');
+  if(!toggle)return;
+  expandedMonth=expandedMonth===Number(toggle.dataset.expandMonth)?null:Number(toggle.dataset.expandMonth);
+  draw();
+  if(expandedMonth!==null){
+   const wrap=q('.table-wrap');
+   const current=q('[data-expand-month="'+expandedMonth+'"]');
+   if(current)wrap.scrollLeft=Math.max(0,current.getBoundingClientRect().left-
+     wrap.getBoundingClientRect().left+wrap.scrollLeft-200);
+  }
+ });
  const menu=q('#v2-period-menu');
  const chosen=node=>records.find(r=>!r.deleted&&String(r.id)===node?.dataset.periodId)||null;
  let touchTimer=null, touchStart=null, ignoreClick=false;
