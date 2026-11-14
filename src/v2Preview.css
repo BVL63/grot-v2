@@ -477,3 +477,37 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
 #v2-chart-dialog .chart-roster-controls button{padding:8px}
 #v2-chart-dialog .directory-pick-list{height:min(49vh,460px);overscroll-behavior:contain}
 #v2-chart-error{color:#a02727;min-height:1em}
+
+
+/* Состав графика: древовидный выбор звеньев с галочками. */
+#v2-chart-dialog{width:min(635px,96vw);max-height:90dvh;display:flex;flex-direction:column;gap:10px}
+#v2-chart-dialog:not([open]){display:none}
+#v2-chart-dialog .chart-name-label{margin:0}
+#v2-chart-dialog .chart-tree-toolbar input{width:100%}
+#v2-chart-dialog .chart-roster-tree{
+ border:1px solid #d0dceb;border-radius:7px;
+ min-height:120px;max-height:min(44vh,390px);overflow:auto;
+ overscroll-behavior:contain;scrollbar-gutter:stable;
+}
+.chart-tree-node,.chart-tree-person{
+ display:flex;align-items:center;gap:8px;
+ min-height:34px;padding:5px 9px 5px calc(9px + var(--depth)*19px);
+ border-bottom:1px solid #e4eaf2;font-size:13px;
+}
+.chart-tree-node{background:#f9fbff}
+.chart-tree-node:has(input:checked){background:#eaf3fc}
+.chart-tree-node button{color:#244c75;background:transparent;border:0;padding:1px 3px;min-width:18px;cursor:pointer}
+.chart-tree-node button:hover{background:#dae9fa}
+.chart-tree-gap{width:18px;flex:none}
+.chart-tree-node input,.chart-tree-person input{width:16px;height:16px;flex:none;margin:0;accent-color:#1776c4}
+.chart-tree-node-name{flex:1;min-width:110px;cursor:pointer}
+.chart-tree-code{color:#506681;white-space:nowrap;font-size:11px}
+.chart-tree-count{color:#506681;white-space:nowrap;font-size:11px;min-width:55px;text-align:right}
+.chart-tree-person{background:#fff;min-height:30px}
+.chart-tree-person:has(input:checked){background:#eef8f0}
+.chart-summary{background:#eaf2ff;color:#17365a;padding:9px 10px;border-radius:5px;font-size:12px;line-height:1.45;max-height:80px;overflow:auto}
+#v2-chart-exceptions{border:1px solid #cedbec;border-radius:6px;padding:9px}
+#v2-chart-exceptions>summary{font-weight:600;color:#21456e;cursor:pointer}
+#v2-chart-exception-search{width:100%;margin:9px 0}
+#v2-chart-exceptions .directory-pick-list{height:min(28vh,230px);overscroll-behavior:contain}
+#v2-chart-dialog .directory-pick-footer{margin-top:0}
