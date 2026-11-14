@@ -68,21 +68,32 @@ export function buildUnifiedYearView(year,records=[],staff=[]){
  * только когда объединение не скрывает другой отпуск в тех же месяцах.
  */
 const duration=vacationDays;
-/** Раскладываем периоды по горизонтальным дорожкам.
- * Пересечение одних и тех же месяцев допустимо, но на разных дорожках.
- * Благодаря этому каждый отпуск рисуется ОДИН раз, в colspan-ячейке.
+/** 
+ * Периоды могут находиться в одной строке, даже если попадают в один месяц.
+ * При этом учитываем минимальную ширину подписи ~94px (около 0.94 месяца):
+ * календарное непересечение само по себе не гарантирует отсутствие наложения.
  */
+function monthPosition(iso,year,isEnd=false){
+ const value=isEnd?Math.min(iso,year+'-12-31'):Math.max(iso,year+'-01-01');
+ const m=Number(value.slice(5,7))-1;
+ const days=new Date(Date.UTC(year,m+1,0)).getUTCDate();
+ return m+(Number(value.slice(8,10))-1+(isEnd?1:0))/days;
+}
 function monthLanes(row){
  const entries=row.periods.map(rec=>{
-  const all=monthIntersections(rec,Number(rec.year));
+  const y=Number(rec.year),all=monthIntersections(rec,y);
   if(!all.length)return null;
-  return {rec,first:all[0].month,last:all[all.length-1].month};
- }).filter(Boolean).sort((a,b)=>a.first-b.first||a.last-b.last);
+  const startAt=monthPosition(rec.period.start,y);
+  const endAt=monthPosition(rec.period.end,y,true);
+  return {rec,first:all[0].month,last:all[all.length-1].month,
+   startAt,endAt,visualEnd:Math.max(endAt,startAt+0.94)};
+ }).filter(Boolean).sort((a,b)=>a.startAt-b.startAt||a.endAt-b.endAt);
  const lanes=[];
  for(const entry of entries){
-  let lane=lanes.find(items=>items.every(p=>p.last<entry.first||p.first>entry.last));
-  if(!lane){lane=[];lanes.push(lane);}
-  lane.push(entry);
+  const lane=lanes.find(items=>items.every(p=>p.visualEnd+0.035<=entry.startAt||
+   entry.visualEnd+0.035<=p.startAt));
+  if(lane)lane.push(entry);
+  else lanes.push([entry]);
  }
  return lanes.length?lanes:[[]];
 }
@@ -97,13 +108,45 @@ export function proportionalMonthOffsets(start,end,span){
  return {left:Number((((firstDay-1)/firstLength)/total*100).toFixed(4)),
   right:Number((((lastLength-lastDay)/lastLength)/total*100).toFixed(4))};
 }
+/** Общая ячейка для нескольких независимых отпусков, попавших в одни месяцы. */
+function renderSharedGroup(entries,first,last){
+ const span=last-first+1,year=Number(entries[0].rec.year);
+ const boundaries=Array.from({length:span-1},(_,i)=>
+  '<span class="shared-month-boundary" style="left:'+((i+1)/span*100).toFixed(4)+'%"></span>').join('');
+ const buttons=entries.map(entry=>{
+  const rec=entry.rec;
+  const left=Number(((entry.startAt-first)/span*100).toFixed(4));
+  const right=Number(((last+1-entry.endAt)/span*100).toFixed(4));
+  const text=entry.first===entry.last
+   ?'<span>'+dateText(rec.period.start)+'</span><span>'+dateText(rec.period.end)+'</span>'
+   :'<span>'+dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</span>';
+  return '<button type="button" class="vacation-period shared-period" data-period-id="'+esc(rec.id)+
+   '" title="'+esc(dateText(rec.period.start)+' – '+dateText(rec.period.end))+
+   '" style="--shared-left:'+left+'%;--shared-right:'+right+'%">'+
+   '<span class="shared-period-dates">'+text+'</span><strong>'+duration(rec.period.start,rec.period.end)+' дн.</strong></button>';
+ }).join('');
+ return '<td colspan="'+span+'" class="shared-months-cell">'+boundaries+buttons+'</td>';
+}
 function renderLane(lane){
- const starts=new Map(lane.map(entry=>[entry.first,entry]));
+ // Объединяем только пересекающиеся месячные диапазоны одной дорожки:
+ // так общий март Королёвой не приводит к дополнительной строке.
+ const groups=[];
+ for(const entry of [...lane].sort((a,b)=>a.first-b.first||a.startAt-b.startAt)){
+  const lastGroup=groups[groups.length-1];
+  if(lastGroup&&entry.first<=lastGroup.last){
+   lastGroup.items.push(entry);lastGroup.last=Math.max(lastGroup.last,entry.last);
+  }else groups.push({first:entry.first,last:entry.last,items:[entry]});
+ }
+ const starts=new Map(groups.map(group=>[group.first,group]));
  const cells=[];
  for(let month=0;month<12;){
-  const entry=starts.get(month);
-  if(!entry){cells.push('<td class="empty-month"></td>');month++;continue;}
-  const rec=entry.rec;
+  const group=starts.get(month);
+  if(!group){cells.push('<td class="empty-month"></td>');month++;continue;}
+  if(group.items.length>1){
+   cells.push(renderSharedGroup(group.items,group.first,group.last));
+   month=group.last+1;continue;
+  }
+  const entry=group.items[0],rec=entry.rec;
   const span=entry.last-entry.first+1;
   const dates=span>1
    ?'<span>'+dateText(rec.period.start)+' – '+dateText(rec.period.end)+'</span>'
