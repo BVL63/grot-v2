@@ -331,6 +331,8 @@ function openChartEditor(chart,initialStructureId=''){
  const expanded=new Set();
  if(initialStructureId)expanded.add(String(initialStructureId));
  const rows=structureRows(structure),children=new Set(structure.map(n=>String(n.parentId)));
+ for(const node of rows)if(node.depth<2)expanded.add(String(node.id));
+ if(initialStructureId){let node=structure.find(n=>String(n.id)===String(initialStructureId));while(node){expanded.add(String(node.id));node=structure.find(n=>String(n.id)===String(node.parentId));}}
  q('#v2-chart-title').textContent='Состав графика · '+year;
  q('#v2-chart-name').value=chart?.name||'';
  q('#v2-chart-search').value='';
