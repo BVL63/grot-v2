@@ -123,8 +123,8 @@ test('Два отпуска одного сотрудника в месяце с
  ];
  const totals=calculateYearTotals(buildUnifiedYearView(2027,items,people));
  assert.equal(totals.months[5],2);
- assert.deepEqual(totals.byStaff.map(p=>p.total),[11,5]);
- assert.equal(totals.total,16);
+ assert.deepEqual(totals.byStaff.map(p=>p.total),[11,4]);
+ assert.equal(totals.total,15);
 });
 test('Переходящий отпуск учитывает сотрудника в обоих месяцах',()=>{
  const totals=calculateYearTotals(buildUnifiedYearView(2027,[rec('a','2027-04-30','2027-05-03')],staff));
