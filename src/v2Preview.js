@@ -98,6 +98,8 @@ function draw(){
    <div class="directory-toolbar">
     <input id="v2-directory-search" type="search" placeholder="Поиск по названию или ФИО" aria-label="Поиск">
     <button type="button" id="v2-directory-add">Добавить</button>
+    <button type="button" id="v2-directory-load">Загрузить структуру</button>
+    <input id="v2-directory-file" type="file" accept=".json,application/json" hidden>
     <span id="v2-directory-count" class="muted"></span>
    </div>
    <div id="v2-directory-content" class="directory-content"></div>
@@ -166,6 +168,19 @@ function draw(){
  q('#v2-directory-close').onclick=()=>q('#v2-directory-dialog').close();
  q('#v2-directory-search').oninput=renderDirectory;
  q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
+ q('#v2-directory-load').onclick=()=>q('#v2-directory-file').click();
+ q('#v2-directory-file').onchange=async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+   const data=JSON.parse(await file.text());
+   const incoming=validateStructure(data.structure);
+   if(!incoming.length)throw new Error('В файле нет структуры');
+   if(!confirm('Загрузить '+incoming.length+' элементов структуры? Сотрудники и отпуска останутся без изменений. Текущий справочник структуры будет заменён.'))return;
+   structure=incoming;
+   dirty=true;persistDraft();renderDirectory();
+  }catch(err){alert('Не удалось загрузить структуру: '+err.message);}
+  finally{e.target.value='';}
+ };
  q('#v2-directory-cancel').onclick=()=>q('#v2-directory-editor').close();
  q('#v2-import').onclick=()=>q('#v2-file').click();
  q('#v2-file').onchange=importJson;
@@ -242,6 +257,7 @@ let directoryMode='structure';
 function openDirectory(mode){
  directoryMode=mode;
  q('#v2-directory-title').textContent=mode==='structure'?'Структура организации':'Сотрудники';
+ q('#v2-directory-load').hidden=mode!=='structure';
  q('#v2-directory-search').value='';
  renderDirectory();
  q('#v2-directory-dialog').showModal();
