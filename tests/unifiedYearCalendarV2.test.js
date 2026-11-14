@@ -52,3 +52,20 @@ test('Сокращение имён при смешанных историчес
  assert.equal(shortStaffName({name:'Петров П.П.'}),'Петров П.П.');
  assert.equal(shortStaffName({name:'Сидорюк Виктория'}),'Сидорюк В.');
 });
+
+import {proportionalMonthOffsets} from '../src/unifiedYearTableV2.js';
+test('Переходящий отпуск показывает пропорции календарных месяцев',()=>{
+ const off=proportionalMonthOffsets('2027-04-30','2027-05-27',2);
+ assert.ok(Math.abs(off.left-48.3333)<0.001);
+ assert.ok(Math.abs(off.right-6.4516)<0.001);
+ const html=renderUnifiedYearTable(buildUnifiedYearView(2027,[rec('x','2027-04-30','2027-05-27')],staff));
+ assert.match(html,/proportional-period/);
+ assert.match(html,/class="proportional-fill"[^>]*left:48\.3333%;right:6\.4516%/);
+ assert.match(html,/30\.04\.27 – 27\.05\.27/);
+ assert.match(html,/26 дн\./);
+});
+test('Для перехода через три месяца полоса учитывает ширину каждого месяца',()=>{
+ const o=proportionalMonthOffsets('2027-01-16','2027-03-15',3);
+ assert.ok(Math.abs(o.left-16.129)<0.001);
+ assert.ok(Math.abs(o.right-18.2796)<0.001);
+});
