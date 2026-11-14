@@ -103,7 +103,7 @@ test('Итоговый столбец: дни, итоговая строка: ч
  const html=renderUnifiedYearTable(view);
  assert.match(html,/Всего дней/);
  assert.match(html,/<tr class="year-totals-row"><th scope="row"[^>]*>В отпуске, чел\.<\/th>/);
- assert.match(html,/<td class="year-grand-total">8<\/td>/);
+ assert.match(html,/<td class="year-grand-total"[^>]*>8<\/td>/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,3);
 });
 test('Итог за сотрудника выводится один раз при двух дорожках отпусков',()=>{
