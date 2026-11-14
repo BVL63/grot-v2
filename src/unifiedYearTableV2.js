@@ -10,6 +10,25 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 const dateText=s=>s?String(s).slice(8,10)+'.'+String(s).slice(5,7)+'.'+String(s).slice(2,4):'';
+/** Только представление ФИО в годовой таблице; исходные поля не изменяем. */
+export function shortStaffName(person){
+ const name=String(person?.name||'').trim();
+ const surname=String(person?.lastName||'').trim();
+ const first=String(person?.firstName||'').trim();
+ const middle=String(person?.middleName||'').trim();
+ if(surname){
+  const initial=x=>x?x[0].toLocaleUpperCase('ru')+'.':'';
+  if(first||middle)return surname+' '+initial(first)+initial(middle);
+  if(name.startsWith(surname+' '))return shortStaffName({name:name.slice(surname.length).trim(),lastName:surname});
+ }
+ if(!name)return surname;
+ const chunks=name.split(/\s+/);
+ if(chunks.length<2)return name;
+ const initial=x=>x.length===2&&x.endsWith('.')?x[0]+'.':x[0].toLocaleUpperCase('ru')+'.';
+ if(chunks.length===2&&/^[А-ЯЁ]\.[А-ЯЁ]\.$/i.test(chunks[1]))return name;
+ return chunks[0]+' '+chunks.slice(1,3).map(initial).join('');
+}
+
 function monthIntersections(record,year){
  const a=record.period?.start,b=record.period?.end;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(a||'')||!/^\d{4}-\d{2}-\d{2}$/.test(b||'')||b<a)return [];
@@ -31,7 +50,7 @@ export function buildUnifiedYearView(year,records=[],staff=[]){
  const people=new Map();
  for(const employee of staff){
   const id=String(employee.id);
-  if(!people.has(id))people.set(id,{id,name:employee.name||[employee.lastName,employee.firstName,employee.middleName].filter(Boolean).join(' '),periods:[],months:Array.from({length:12},()=>[])});
+  if(!people.has(id))people.set(id,{id,name:employee.name||[employee.lastName,employee.firstName,employee.middleName].filter(Boolean).join(' '),shortName:shortStaffName(employee),periods:[],months:Array.from({length:12},()=>[])});
  }
  for(const r of records){
   if(Number(r.year)!==y)continue;
@@ -91,7 +110,7 @@ export function renderUnifiedYearTable(view){
  const body=view.rows.map(row=>{
   const lanes=monthLanes(row);
   return lanes.map((lane,i)=>'<tr class="vacation-lane '+(lanes.length===1?'lane-single':i===0?'lane-first':i===lanes.length-1?'lane-last':'lane-middle')+'">'+
-   (i===0?'<th scope="row" rowspan="'+lanes.length+'">'+esc(row.name)+'</th>':'')+
+   (i===0?'<th scope="row" rowspan="'+lanes.length+'" title="'+esc(row.name)+'">'+esc(row.shortName||shortStaffName(row))+'</th>':'')+
    renderLane(lane)+'</tr>').join('');
  }).join('');
  return '<table class="annual-table grot-unified-year"><thead><tr><th scope="col">Сотрудник</th>'+header+
