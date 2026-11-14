@@ -299,6 +299,7 @@ function openDirectory(mode){
  q('#v2-directory-dialog').showModal();
 }
 function renderDirectory(){
+ const previousScroll=q('#v2-directory-content')?.scrollTop||0;
  const term=q('#v2-directory-search').value.toLocaleLowerCase('ru').replace(/ё/g,'е');
  const unassigned=unassignedStaff(staff,structure);
  q('#v2-directory-unassigned').textContent='Без подразделения: '+unassigned.length+(directoryUnassignedOnly?' ✓':'');
@@ -339,6 +340,7 @@ function renderDirectory(){
    '<td>'+escapeHtml(structurePath(structure,n.structureId)||'Без подразделения'+(n.department?' (указано: '+n.department+')':''))+'</td><td>'+escapeHtml(n.allowance??'—')+'</td>'+
    '<td><button type="button" data-edit-staff="'+escapeHtml(n.id)+'">Изменить</button></td></tr>').join('')+'</tbody></table>';
  }
+ q('#v2-directory-content').scrollTop=previousScroll;
  q('#v2-directory-count').textContent='Записей: '+rows.length;
  const allPick=q('#v2-directory-select-all');
  if(allPick)allPick.onchange=()=>{for(const item of root.querySelectorAll('.v2-directory-pick'))item.checked=allPick.checked;};
