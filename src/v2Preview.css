@@ -180,3 +180,35 @@
 .directory-checkbox input{width:auto!important}
 #v2-directory-error{color:#a02727;min-height:1em}
 @media(max-width:640px){.directory-name-fields{grid-template-columns:1fr}.directory-content{max-height:60vh}.directory-table{font-size:12px}}
+
+
+/* Структура предприятия: дерево, выделение, закреплённые сотрудники. */
+#v2-directory-dialog{width:min(990px,97vw);max-height:93vh;display:flex;flex-direction:column;padding:16px}
+#v2-directory-dialog:not([open]){display:none}
+#v2-directory-dialog .directory-toolbar{flex-wrap:wrap}
+#v2-directory-dialog .directory-toolbar button{white-space:nowrap}
+#v2-directory-dialog .directory-content{flex:1;min-height:200px;max-height:none;overflow:auto}
+#v2-directory-dialog .directory-attached{margin:10px 0 0;min-height:24px;line-height:1.5;font-size:13px;color:#4d6580;max-height:70px;overflow:auto}
+.directory-tree{table-layout:fixed}
+.directory-tree th:nth-child(1){width:51%}
+.directory-tree th:nth-child(2){width:12%}
+.directory-tree th:nth-child(3){width:23%}
+.directory-tree th:nth-child(4){width:14%}
+.directory-tree td{text-align:left;padding:6px 9px;font-size:13px}
+.directory-tree td:first-child{white-space:nowrap}
+.directory-tree tr[data-structure-row]{cursor:pointer}
+.directory-tree tr.selected-structure td,.directory-tree tr.selected-structure:hover td{background:#ffedbd}
+#v2-directory-dialog .tree-toggle{background:#f2f6fc;color:#193857;border:1px solid #bbcada;border-radius:3px;padding:0;width:19px;height:19px;line-height:16px;margin-right:6px;font-size:14px}
+#v2-directory-dialog .tree-toggle:hover{background:#dae9fa}
+.tree-placeholder{display:inline-block;width:25px}
+#v2-structure-pick-dialog{width:min(650px,96vw);max-height:88vh;overflow:auto}
+#v2-structure-pick-description{color:#4d6580;font-size:13px}
+#v2-structure-pick-search{width:100%;margin-bottom:10px}
+.directory-pick-list{height:min(55vh,470px);overflow:auto;border:1px solid #d7dfe9;border-radius:5px}
+.directory-pick-list label{display:flex;align-items:center;flex-direction:row;padding:8px 12px;gap:10px;border-bottom:1px solid #edf0f4;cursor:pointer}
+.directory-pick-list label:hover{background:#edf4ff}
+.directory-pick-list label span{display:block;font-size:14px}
+.directory-pick-list label small{display:block;color:#597087;margin-top:3px;font-size:11px}
+.directory-pick-list input{width:17px;height:17px;flex:none}
+.directory-pick-footer{display:flex;align-items:center;gap:15px;justify-content:space-between;margin-top:12px}
+@media(max-width:640px){.directory-tree{min-width:670px}.directory-tree td{font-size:12px}.directory-tree th:nth-child(1){width:48%}}
