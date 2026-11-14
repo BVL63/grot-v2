@@ -3,6 +3,7 @@ import {addVacationPeriod,editVacationPeriod,removeVacationPeriod} from './vacat
 import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
+import {renderRangeCalendar,shiftMonth,inclusiveCalendarDays} from './periodCalendarV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -80,8 +81,19 @@ function draw(){
    <form method="dialog" id="v2-editor">
     <h2 id="v2-dialog-title">Отпуск</h2>
     <label>Сотрудник <select name="staffId" required>${staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
-    <label>Начало <input name="start" type="date" required></label>
-    <label>Конец <input name="end" type="date" required></label>
+    <div class="calendar-panel">
+     <div class="calendar-bar">
+      <button type="button" id="v2-calendar-prev" aria-label="Предыдущий месяц">‹</button>
+      <strong id="v2-calendar-hint">Выберите начало отпуска</strong>
+      <button type="button" id="v2-calendar-next" aria-label="Следующий месяц">›</button>
+     </div>
+     <div id="v2-calendar-months" class="calendar-months" aria-label="Даты отпуска"></div>
+     <p id="v2-calendar-summary" class="calendar-summary" aria-live="polite"></p>
+    </div>
+    <div class="calendar-date-fields">
+     <label>Начало <input name="start" type="date" required></label>
+     <label>Конец <input name="end" type="date" required></label>
+    </div>
     <label>Причина изменения
      <select name="reasonPreset" required>
       <option value="">Выберите причину</option>
@@ -203,6 +215,45 @@ function openEditor(rec,{deleting=false}={}){
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
+ let calendarAnchor=(form.elements.start.value||year+'-01-01').slice(0,7);
+ let calendarNext='start';
+ const updateCalendar=()=>{
+  const start=form.elements.start.value,end=form.elements.end.value;
+  q('#v2-calendar-months').innerHTML=renderRangeCalendar(start,end,calendarAnchor);
+  q('#v2-calendar-hint').textContent=calendarNext==='start'?'Нажмите начало отпуска':'Нажмите конец отпуска';
+  q('#v2-calendar-summary').textContent=start&&end
+   ?'Отпуск: '+dateFmt(start)+' — '+dateFmt(end)+' · '+inclusiveCalendarDays(start,end)+' календарных дней'
+   :start?'Начало: '+dateFmt(start)+' · выберите последний день отпуска'
+   :'Нажмите на день начала отпуска';
+ };
+ q('#v2-calendar-prev').onclick=()=>{calendarAnchor=shiftMonth(calendarAnchor,-1);updateCalendar();};
+ q('#v2-calendar-next').onclick=()=>{calendarAnchor=shiftMonth(calendarAnchor,1);updateCalendar();};
+ q('#v2-calendar-months').onclick=e=>{
+  const day=e.target.closest('[data-calendar-day]');
+  if(!day)return;
+  const date=day.dataset.calendarDay;
+  if(calendarNext==='start'){
+   form.elements.start.value=date;
+   form.elements.end.value='';
+   calendarNext='end';
+  }else{
+   const start=form.elements.start.value;
+   if(date<start){form.elements.start.value=date;form.elements.end.value=start;}
+   else form.elements.end.value=date;
+   calendarNext='start';
+  }
+  updateCalendar();
+ };
+ for(const field of [form.elements.start,form.elements.end])field.onchange=()=>{
+  if(form.elements.start.value&&form.elements.end.value&&form.elements.end.value<form.elements.start.value){
+   q('#v2-error').textContent='Конец отпуска должен быть не раньше начала';
+  }else q('#v2-error').textContent='';
+  const current=form.elements.start.value||form.elements.end.value;
+  if(current)calendarAnchor=current.slice(0,7);
+  calendarNext=form.elements.start.value&&!form.elements.end.value?'end':'start';
+  updateCalendar();
+ };
+ updateCalendar();
  form.elements.reasonPreset.value='';
  form.elements.reasonOther.value='';
  q('#v2-reason-other-wrap').hidden=true;
