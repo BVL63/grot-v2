@@ -7,6 +7,7 @@ import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './peri
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
+import {validateCharts,saveChart,staffInChart,chartMemberIdsByStructure} from './chartRosterV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -32,11 +33,12 @@ let records=[
 ];
 let year=2027,selected=null,dirty=false,loadedSource='Демонстрационные данные';
 let selectedGraphId='';
+let charts=[];
 let originalImport=null,importReport='',historyReview=null;
 let localSaveStatus='Локальное сохранение не проверено';
 function persistDraft(){
  try{
-  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,structure,year,source:loadedSource,dirty}));
+  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,structure,charts,year,source:loadedSource,dirty}));
   localSaveStatus='Автосохранение на этом устройстве';
  }catch(err){
   localSaveStatus='Автосохранение недоступно — сохраните файл';
@@ -46,7 +48,7 @@ function restoreDraftAtStartup(){
  try{
   const draft=parseLocalDraft(localStorage.getItem(DRAFT_KEY));
   if(!draft){localSaveStatus='Локальная копия отсутствует';return;}
-  staff=draft.staff;records=draft.records;structure=draft.structure||[];year=draft.year;
+  staff=draft.staff;records=draft.records;structure=draft.structure||[];charts=draft.charts||[];year=draft.year;
   loadedSource=draft.source;dirty=draft.dirty;
   localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
   importReport='Автоматически восстановлена локальная копия. Рекомендуется также сохранять резервный файл.';
@@ -62,9 +64,10 @@ function dateFmt(s){return displayDate(s)||'—';}
 function draw(){
  const years=[...new Set([...baseYears,...records.map(r=>Number(r.year)).filter(Number.isInteger)])].sort((a,b)=>a-b);
  const active=records.filter(r=>!r.deleted);
- if(selectedGraphId&&!structure.some(n=>String(n.id)===String(selectedGraphId)))selectedGraphId='';
- const graph=selectDepartmentGraph(staff,active,structure,selectedGraphId);
- const chartOptions=structureRows(structure).map(n=>'<option value="'+escapeHtml(n.id)+'"'+(String(n.id)===selectedGraphId?' selected':'')+'>'+escapeHtml('— '.repeat(n.depth)+n.name)+'</option>').join('');
+ if(selectedGraphId&&!charts.some(n=>String(n.id)===String(selectedGraphId)&&Number(n.year)===year))selectedGraphId='';
+ const graph=staffInChart(staff,active,charts,selectedGraphId,year);
+ const chartOptions=charts.filter(c=>Number(c.year)===year).map(c=>
+  '<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===selectedGraphId?' selected':'')+'>'+escapeHtml(c.name)+'</option>').join('');
  root.innerHTML=`
   <header class="v2-header">
    <div class="v2-heading"><strong>ГРАФИК ОТПУСКОВ</strong><small>ГРОТ 2.0 · тестовая версия</small></div>
@@ -80,6 +83,9 @@ function draw(){
   <main>
    <p class="warning"><strong>ГРОТ 2.0 — тестовый режим.</strong> Данные автоматически сохраняются на этом устройстве в браузере. Для резервной копии используйте «Сохранить данные». Основной ГРОТ не затрагивается.</p>
    <div class="chart-selector"><label>График <select id="v2-chart"><option value="">Общий график</option>${chartOptions}</select></label>
+    <button type="button" id="v2-chart-new">Новый график</button>
+    <button type="button" id="v2-chart-edit" ${selectedGraphId?'':'disabled'}>Состав графика</button>
+    <button type="button" id="v2-chart-delete" ${selectedGraphId?'':'disabled'}>Удалить график</button>
     <span class="muted">Сотрудников: ${graph.staff.length} · Периодов за ${year} год: ${graph.records.filter(r=>Number(r.year)===year).length}</span>
     <span class="muted">Изменения отображаются в общем графике автоматически</span></div>
    <div class="toolbar">
@@ -101,6 +107,20 @@ function draw(){
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
    <button type="button" role="menuitem" id="v2-menu-delete">Удалить</button>
   </div>
+  <dialog id="v2-chart-dialog">
+   <div class="directory-heading"><h2 id="v2-chart-title">Состав графика</h2><button type="button" id="v2-chart-close">Закрыть</button></div>
+   <label class="chart-name-label">Наименование графика <input id="v2-chart-name" type="text" maxlength="110" placeholder="Например, Водители — группы" required></label>
+   <div class="chart-roster-controls">
+    <label>Подразделение / отдел <select id="v2-chart-department"><option value="">Все подразделения</option>${structureRows(structure).map(n=>'<option value="'+escapeHtml(n.id)+'">'+escapeHtml('— '.repeat(n.depth)+n.name)+'</option>').join('')}</select></label>
+    <input id="v2-chart-search" type="search" placeholder="Поиск по ФИО">
+    <button type="button" id="v2-chart-select-shown">Выделить показанных</button>
+    <button type="button" id="v2-chart-clear-shown">Снять показанных</button>
+   </div>
+   <p class="muted">Выбирайте людей из разных отделов. Переключение подразделения не сбрасывает галочки.</p>
+   <div id="v2-chart-roster" class="directory-pick-list"></div>
+   <div class="directory-pick-footer"><button type="button" id="v2-chart-save">Сохранить график</button><span id="v2-chart-selected-count" class="muted"></span></div>
+   <p id="v2-chart-error" role="alert"></p>
+  </dialog>
   <dialog id="v2-directory-dialog">
    <div class="directory-heading"><h2 id="v2-directory-title">Справочник</h2><button type="button" id="v2-directory-close">Закрыть</button></div>
    <div class="directory-toolbar">
@@ -186,6 +206,15 @@ function draw(){
   <footer>ГРОТ 2.0 — демонстрация · основной график не затронут</footer>`;
  q('#v2-year').onchange=e=>{year=Number(e.target.value);selected=null;persistDraft();draw();};
  q('#v2-chart').onchange=e=>{selectedGraphId=e.target.value;selected=null;draw();};
+ q('#v2-chart-new').onclick=()=>openChartEditor(null);
+ q('#v2-chart-edit').onclick=()=>openChartEditor(charts.find(c=>String(c.id)===selectedGraphId)||null);
+ q('#v2-chart-delete').onclick=()=>{
+  const chart=charts.find(c=>String(c.id)===selectedGraphId);
+  if(!chart||!confirm('Удалить график «'+chart.name+'»? Записи отпусков сотрудников сохранятся в общем графике.'))return;
+  charts=charts.filter(c=>String(c.id)!==selectedGraphId);
+  selectedGraphId='';dirty=true;persistDraft();draw();
+ };
+ q('#v2-chart-close').onclick=()=>q('#v2-chart-dialog').close();
  q('#v2-add').onclick=()=>openEditor(null);
  q('#v2-structure').onclick=()=>openDirectory('structure');
  q('#v2-staff').onclick=()=>openDirectory('staff');
@@ -194,7 +223,7 @@ function draw(){
  q('#v2-directory-add').onclick=()=>editDirectoryItem(null);
  q('#v2-structure-edit').onclick=()=>{if(selectedStructureId)editDirectoryItem(selectedStructureId);};
  q('#v2-structure-delete').onclick=removeSelectedStructure;
- q('#v2-structure-chart').onclick=()=>{if(!selectedStructureId)return;selectedGraphId=selectedStructureId;q('#v2-directory-dialog').close();draw();};
+ q('#v2-structure-chart').onclick=()=>{if(!selectedStructureId)return;q('#v2-directory-dialog').close();openChartEditor(null,selectedStructureId);};
  q('#v2-structure-pick').onclick=openStructurePicker;
  q('#v2-structure-newstaff').onclick=()=>{
   if(!selectedStructureId)return;
@@ -652,7 +681,7 @@ async function importJson(e){
    [...(inspected.problems||[]),...(inspected.warnings||[])].join('; ');
   if(!inspected.ok){alert('Импорт не выполнен: '+inspected.problems.join('; '));draw();return;}
   const newRecords=inspected.records,newStaff=inspected.staff;
-  records=newRecords;staff=newStaff;structure=inspected.structure||[];originalImport=inspected.sourceSnapshot;
+  records=newRecords;staff=newStaff;structure=inspected.structure||[];charts=inspected.charts||[];originalImport=inspected.sourceSnapshot;
   historyReview=inspected.bundledHistoryReview||null;
   loadedSource='Проверен файл: '+file.name;
   if(!records.some(r=>Number(r.year)===year))year=records[0]?.year||2027;
@@ -665,7 +694,7 @@ function downloadJson(data,name){
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function exportJson(){
- downloadJson({schemaVersion:2,staff,records,structure},'grot-v2-preview-'+year+'.json');
+ downloadJson({schemaVersion:2,staff,records,structure,charts},'grot-v2-preview-'+year+'.json');
  dirty=false;persistDraft();draw();
 }
 draw();
