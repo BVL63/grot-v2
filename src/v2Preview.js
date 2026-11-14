@@ -849,7 +849,10 @@ function downloadJson(data,name){
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function exportJson(){
- downloadJson({schemaVersion:2,staff,records,structure,charts},'grot-v2-preview-'+year+'.json');
+ const now=new Date();
+ const stamp=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-')+'-'+
+  [now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join('');
+ downloadJson({schemaVersion:2,staff,records,structure,charts},'grot-backup-'+stamp+'.json');
  dirty=false;persistDraft();draw();
 }
 draw();
