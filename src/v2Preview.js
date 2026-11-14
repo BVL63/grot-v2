@@ -7,7 +7,7 @@ import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './peri
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
-import {validateCharts,saveChart,staffInChart,chartMemberIdsByStructure} from './chartRosterV2.js';
+import {validateCharts,saveChart,staffInChart,chartMemberIdsByStructure,resolveChartStaffIds} from './chartRosterV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -65,7 +65,7 @@ function draw(){
  const years=[...new Set([...baseYears,...records.map(r=>Number(r.year)).filter(Number.isInteger)])].sort((a,b)=>a-b);
  const active=records.filter(r=>!r.deleted);
  if(selectedGraphId&&!charts.some(n=>String(n.id)===String(selectedGraphId)&&Number(n.year)===year))selectedGraphId='';
- const graph=staffInChart(staff,active,charts,selectedGraphId,year);
+ const graph=staffInChart(staff,active,charts,selectedGraphId,year,structure);
  const chartOptions=charts.filter(c=>Number(c.year)===year).map(c=>
   '<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===selectedGraphId?' selected':'')+'>'+escapeHtml(c.name)+'</option>').join('');
  root.innerHTML=`
@@ -110,14 +110,17 @@ function draw(){
   <dialog id="v2-chart-dialog">
    <div class="directory-heading"><h2 id="v2-chart-title">Состав графика</h2><button type="button" id="v2-chart-close">Закрыть</button></div>
    <label class="chart-name-label">Наименование графика <input id="v2-chart-name" type="text" maxlength="110" placeholder="Например, Водители — группы" required></label>
-   <div class="chart-roster-controls">
-    <label>Подразделение / отдел <select id="v2-chart-department"><option value="">Все подразделения</option>${structureRows(structure).map(n=>'<option value="'+escapeHtml(n.id)+'">'+escapeHtml('— '.repeat(n.depth)+n.name)+'</option>').join('')}</select></label>
-    <input id="v2-chart-search" type="search" placeholder="Поиск по ФИО">
-    <button type="button" id="v2-chart-select-shown">Выделить показанных</button>
-    <button type="button" id="v2-chart-clear-shown">Снять показанных</button>
-   </div>
-   <p class="muted">Выбирайте людей из разных отделов. Переключение подразделения не сбрасывает галочки.</p>
-   <div id="v2-chart-roster" class="directory-pick-list"></div>
+   <p class="muted">Отметьте нужные структурные звенья: сотрудники входят автоматически, в том числе добавленные позднее. Раскройте ветвь, чтобы увидеть сотрудников.</p>
+   <div class="chart-tree-toolbar"><input id="v2-chart-search" type="search" placeholder="Поиск по структуре или ФИО"></div>
+   <div id="v2-chart-roster" class="chart-roster-tree"></div>
+   <div id="v2-chart-summary" class="chart-summary"></div>
+   <details id="v2-chart-exceptions"><summary>Исключения и отдельные сотрудники</summary>
+    <div class="chart-roster-controls">
+     <input id="v2-chart-exception-search" type="search" placeholder="Поиск сотрудника по ФИО">
+    </div>
+    <div id="v2-chart-exception-list" class="directory-pick-list"></div>
+    <p class="muted">Галочка включает сотрудника в график, снятие — исключает. Выбор звена не отменяется.</p>
+   </details>
    <div class="directory-pick-footer"><button type="button" id="v2-chart-save">Сохранить график</button><span id="v2-chart-selected-count" class="muted"></span></div>
    <p id="v2-chart-error" role="alert"></p>
   </dialog>
@@ -320,53 +323,144 @@ function draw(){
 }
 function openChartEditor(chart,initialStructureId=''){
  const dialog=q('#v2-chart-dialog');
- const chosen=new Set(chart?.staffIds?.map(String)||
-  (initialStructureId?chartMemberIdsByStructure(staff,structure,initialStructureId):[]));
- q('#v2-chart-title').textContent=(chart?'Изменить':'Новый')+' график · '+year;
+ // Старые графики с ручным перечнем сотрудников остаются совместимыми.
+ const selectedNodes=new Set((chart?.structureIds||[]).map(String));
+ if(initialStructureId)selectedNodes.add(String(initialStructureId));
+ const explicit=new Set((chart?.includeIds||(!chart?.structureIds?.length?chart?.staffIds:[])||[]).map(String));
+ const excluded=new Set((chart?.excludeIds||[]).map(String));
+ const expanded=new Set();
+ if(initialStructureId)expanded.add(String(initialStructureId));
+ const rows=structureRows(structure),children=new Set(structure.map(n=>String(n.parentId)));
+ q('#v2-chart-title').textContent='Состав графика · '+year;
  q('#v2-chart-name').value=chart?.name||'';
- q('#v2-chart-department').value=initialStructureId||'';
  q('#v2-chart-search').value='';
+ q('#v2-chart-exception-search').value='';
  q('#v2-chart-error').textContent='';
- const visible=()=>{
-  const dep=q('#v2-chart-department').value;
+ const automatic=()=>{
+  const ids=new Set();
+  for(const id of selectedNodes)for(const member of chartMemberIdsByStructure(staff,structure,id))ids.add(member);
+  return ids;
+ };
+ const chosen=()=>{
+  const ids=automatic();
+  for(const id of explicit)ids.add(id);
+  for(const id of excluded)ids.delete(id);
+  return ids;
+ };
+ const membersOf=id=>new Set(chartMemberIdsByStructure(staff,structure,id));
+ const renderSummary=()=>{
+  const ids=chosen();
+  const labels=rows.filter(n=>selectedNodes.has(String(n.id)))
+   .map(n=>structurePath(structure,n.id));
+  q('#v2-chart-selected-count').textContent='Сотрудников: '+ids.size;
+  q('#v2-chart-summary').textContent='Выбрано звеньев: '+selectedNodes.size+
+   ' · Сотрудников: '+ids.size+(labels.length?' · '+labels.join('; '):'');
+ };
+ const renderTree=()=>{
   const search=q('#v2-chart-search').value.trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
-  const members=dep?new Set(chartMemberIdsByStructure(staff,structure,dep)):null;
-  return [...staff].filter(p=>(!members||members.has(String(p.id)))&&
-    String(p.name||'').toLocaleLowerCase('ru').replace(/ё/g,'е').includes(search))
-    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+  const norm=v=>String(v||'').toLocaleLowerCase('ru').replace(/ё/g,'е');
+  // При поиске оставляем предков найденных звеньев, чтобы не терять иерархию.
+  const visibleIds=new Set();
+  if(search)for(const node of rows){
+   if(norm(node.name).includes(search)||norm(node.code).includes(search)||
+      staff.some(p=>membersOf(node.id).has(String(p.id))&&norm(p.name).includes(search))){
+    let n=node;while(n){visibleIds.add(String(n.id));n=structure.find(x=>String(x.id)===String(n.parentId));}
+   }
+  }
+  const visible=rows.filter(n=>{
+   if(search)return visibleIds.has(String(n.id));
+   let parent=n.parentId;
+   while(parent!=null){
+    if(!expanded.has(String(parent)))return false;
+    parent=structure.find(x=>String(x.id)===String(parent))?.parentId??null;
+   }
+   return true;
+  });
+  const selected=chosen();
+  let html='';
+  for(const node of visible){
+   const members=membersOf(node.id);
+   const included=[...members].filter(id=>selected.has(id)).length;
+   const isChecked=selectedNodes.has(String(node.id));
+   const hasChild=children.has(String(node.id));
+   html+='<div class="chart-tree-node" style="--depth:'+node.depth+'">'+
+    (hasChild?'<button type="button" data-chart-expand="'+escapeHtml(node.id)+'" aria-label="Раскрыть или свернуть">'+(expanded.has(String(node.id))?'▾':'▸')+'</button>':'<span class="chart-tree-gap"></span>')+
+    '<input type="checkbox" data-chart-node="'+escapeHtml(node.id)+'"'+(isChecked?' checked':'')+'>'+
+    '<span class="chart-tree-node-name" data-chart-expand="'+escapeHtml(node.id)+'">'+escapeHtml(node.name)+'</span>'+
+    '<span class="chart-tree-code">'+escapeHtml(node.code||'')+'</span>'+
+    '<span class="chart-tree-count">'+included+' / '+members.size+' чел.</span></div>';
+   if(!hasChild&&(expanded.has(String(node.id))||search)){
+    for(const person of staff.filter(p=>members.has(String(p.id))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))){
+     html+='<div class="chart-tree-person" style="--depth:'+(node.depth+1)+'">'+
+      '<input type="checkbox" data-chart-person="'+escapeHtml(person.id)+'"'+(selected.has(String(person.id))?' checked':'')+'>'+
+      '<span>'+escapeHtml(person.name||'')+'</span></div>';
+    }
+   }
+  }
+  q('#v2-chart-roster').innerHTML=html||'<p class="muted">Нет элементов структуры. Добавьте их в справочнике «Структура».</p>';
+  q('#v2-chart-roster').querySelectorAll('[data-chart-node]').forEach(input=>{
+   const members=membersOf(input.dataset.chartNode);
+   const included=[...members].filter(id=>selected.has(id)).length;
+   input.indeterminate=!input.checked&&included>0;
+  });
+  renderSummary();
  };
- const render=()=>{
-  q('#v2-chart-selected-count').textContent='Выбрано: '+chosen.size;
-  q('#v2-chart-roster').innerHTML=visible().map(p=>
-   '<label><input type="checkbox" data-roster-member="'+escapeHtml(p.id)+'"'+(chosen.has(String(p.id))?' checked':'')+'>'+
-   '<span>'+escapeHtml(p.name)+(p.dismissed?' (уволен)':'')+
-   '<small>'+escapeHtml(structurePath(structure,p.structureId)||
-     structure.filter(n=>String(n.leaderId)===String(p.id)).map(n=>structurePath(structure,n.id)+' (руководитель)').join('; ')||
-     'Без подразделения')+'</small></span></label>').join('');
+ const renderExceptions=()=>{
+  const search=q('#v2-chart-exception-search').value.trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
+  const selected=chosen();
+  q('#v2-chart-exception-list').innerHTML=[...staff].filter(p=>String(p.name||'').toLocaleLowerCase('ru').replace(/ё/g,'е').includes(search))
+   .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru')).map(p=>
+   '<label><input type="checkbox" data-chart-person="'+escapeHtml(p.id)+'"'+(selected.has(String(p.id))?' checked':'')+'>'+
+   '<span>'+escapeHtml(p.name||'')+'<small>'+escapeHtml(structurePath(structure,p.structureId)||'Без подразделения')+'</small></span></label>').join('');
  };
- q('#v2-chart-department').onchange=render;
- q('#v2-chart-search').oninput=render;
+ const togglePerson=(id,on)=>{
+  const base=automatic().has(id);
+  if(on){excluded.delete(id);if(!base)explicit.add(id);}
+  else {explicit.delete(id);if(base)excluded.add(id);}
+ };
+ q('#v2-chart-roster').onclick=e=>{
+  const expand=e.target.closest('[data-chart-expand]');
+  if(expand){
+   const id=expand.dataset.chartExpand;
+   if(expanded.has(id))expanded.delete(id);else expanded.add(id);
+   renderTree();
+  }
+ };
  q('#v2-chart-roster').onchange=e=>{
-  const node=e.target.closest('[data-roster-member]');
-  if(!node)return;
-  if(node.checked)chosen.add(node.dataset.rosterMember);else chosen.delete(node.dataset.rosterMember);
-  q('#v2-chart-selected-count').textContent='Выбрано: '+chosen.size;
+  const node=e.target.closest('[data-chart-node]');
+  if(node){
+   const id=node.dataset.chartNode;
+   const memberIds=membersOf(id);
+   if(node.checked){
+    selectedNodes.add(id);
+    // Ранее исключённые сотрудники остаются исключёнными.
+   }else{
+    selectedNodes.delete(id);
+    for(const member of memberIds)if(![...selectedNodes].some(k=>membersOf(k).has(member)))explicit.delete(member);
+   }
+  }
+  const person=e.target.closest('[data-chart-person]');
+  if(person)togglePerson(person.dataset.chartPerson,person.checked);
+  renderTree();renderExceptions();
  };
- q('#v2-chart-select-shown').onclick=()=>{
-  for(const p of visible())chosen.add(String(p.id));render();
+ q('#v2-chart-exception-list').onchange=e=>{
+  const person=e.target.closest('[data-chart-person]');
+  if(!person)return;
+  togglePerson(person.dataset.chartPerson,person.checked);
+  renderTree();renderExceptions();
  };
- q('#v2-chart-clear-shown').onclick=()=>{
-  for(const p of visible())chosen.delete(String(p.id));render();
- };
+ q('#v2-chart-search').oninput=renderTree;
+ q('#v2-chart-exception-search').oninput=renderExceptions;
  q('#v2-chart-save').onclick=()=>{
   try{
    const id=chart?.id||'chart-v2-'+(crypto.randomUUID?.()||String(Date.now()));
-   charts=saveChart(charts,{id,year,name:q('#v2-chart-name').value,staffIds:[...chosen]},staff);
+   charts=saveChart(charts,{id,year,name:q('#v2-chart-name').value,
+    staffIds:[...chosen()],structureIds:[...selectedNodes],includeIds:[...explicit],excludeIds:[...excluded]},staff,structure);
    selectedGraphId=String(id);
    dirty=true;persistDraft();dialog.close();draw();
   }catch(err){q('#v2-chart-error').textContent=err.message;}
  };
- render();dialog.showModal();
+ renderTree();renderExceptions();dialog.showModal();
 }
 let directoryMode='structure';
 let selectedStructureId=null;
