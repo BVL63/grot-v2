@@ -22,7 +22,7 @@ export function validateCharts(charts,staff){
 /** Действующий состав: выбранные структурные звенья + отдельные включения − исключения. */
 export function resolveChartStaffIds(chart,staff,structure=[]){
  const selected=new Set((chart.structureIds||[]).flatMap(id=>chartMemberIdsByStructure(staff,structure,id)));
- const extras=chart.includeIds||(!(chart.structureIds||[]).length?chart.staffIds||[]:[]);
+ const extras=(chart.includeIds?.length?chart.includeIds:(!(chart.structureIds||[]).length?chart.staffIds||[]:[]));
  for(const id of extras)selected.add(String(id));
  for(const id of chart.excludeIds||[])selected.delete(String(id));
  return selected;
