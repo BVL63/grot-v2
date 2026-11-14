@@ -68,7 +68,21 @@ function draw(){
     <label>Сотрудник <select name="staffId" required>${staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
     <label>Начало <input name="start" type="date" required></label>
     <label>Конец <input name="end" type="date" required></label>
-    <label>Причина изменения <input name="reason" required placeholder="Например, корректировка графика"></label>
+    <label>Причина изменения
+     <select name="reasonPreset" required>
+      <option value="">Выберите причину</option>
+      <option value="По заявлению сотрудника">По заявлению сотрудника</option>
+      <option value="Производственная необходимость">Производственная необходимость</option>
+      <option value="По согласованию сторон">По согласованию сторон</option>
+      <option value="Исправление ошибки в графике">Исправление ошибки в графике</option>
+      <option value="Корректировка исторических данных">Корректировка исторических данных</option>
+      <option value="Отмена отпуска">Отмена отпуска</option>
+      <option value="other">Другая причина…</option>
+     </select>
+    </label>
+    <label id="v2-reason-other-wrap" hidden>Уточните причину
+     <input name="reasonOther" placeholder="Укажите свою причину">
+    </label>
     <p id="v2-error" role="alert"></p>
     <div class="actions"><button type="button" id="v2-save">Сохранить</button>
     <button type="button" id="v2-delete">Удалить</button>
@@ -175,13 +189,28 @@ function openEditor(rec,{deleting=false}={}){
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
- form.elements.reason.value='';
+ form.elements.reasonPreset.value='';
+ form.elements.reasonOther.value='';
+ q('#v2-reason-other-wrap').hidden=true;
+ form.elements.reasonOther.required=false;
+ form.elements.reasonPreset.onchange=()=>{
+  const other=form.elements.reasonPreset.value==='other';
+  q('#v2-reason-other-wrap').hidden=!other;
+  form.elements.reasonOther.required=other;
+  if(other)form.elements.reasonOther.focus();
+ };
+ const selectedReason=()=>{
+  const preset=form.elements.reasonPreset.value;
+  const reason=(preset==='other'?form.elements.reasonOther.value:preset).trim();
+  if(!reason)throw new Error('Выберите причину или укажите свою');
+  return reason;
+ };
  q('#v2-error').textContent=rec?.verificationStatus==='unverified-source'?'Даты перенесены из встроенной истории, не проверены. Для корректировки укажите причину.':'';
  q('#v2-delete').hidden=!rec;
  if(deleting)q('#v2-error').textContent='Укажите причину и подтвердите удаление периода.';
  q('#v2-save').onclick=()=>{
   try{
-   const meta={actor:'Пользователь тестового экрана',reason:form.elements.reason.value.trim(),at:new Date().toISOString()};
+   const meta={actor:'Пользователь тестового экрана',reason:selectedReason(),at:new Date().toISOString()};
    if(rec)records=editVacationPeriod(records,rec.id,{
     start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
    else{
@@ -197,7 +226,7 @@ function openEditor(rec,{deleting=false}={}){
  };
  q('#v2-delete').onclick=()=>{
   try{
-   const reason=form.elements.reason.value.trim();
+   const reason=selectedReason();
    if(!reason)throw new Error('Укажите причину удаления');
    if(!confirm('Удалить отпуск '+(rec.staffName||'сотрудника')+' с '+dateFmt(rec.period.start)+' по '+dateFmt(rec.period.end)+'?'))return;
    records=removeVacationPeriod(records,rec.id,editPolicy(),{
