@@ -72,3 +72,11 @@
 }
 .period-context-menu button:hover,.period-context-menu button:focus{background:#e4eef9}
 #v2-reason-other-wrap input,#v2-editor select[name="reasonPreset"]{width:100%}
+
+/* Переходящие отпуска показываются ступеньками в соседних месяцах:
+   каждый период занимает одну горизонтальную дорожку и одну colspan-ячейку. */
+.grot-unified-year tr.vacation-lane td{height:56px}
+.grot-unified-year tr.vacation-lane td.period-span{padding:4px 3px}
+.grot-unified-year tr.vacation-lane td.period-span .vacation-period{height:100%;min-height:48px}
+.grot-unified-year tr.vacation-lane td.empty-month{background:#fff}
+.grot-unified-year tr.vacation-lane th[scope=row]{vertical-align:middle}
