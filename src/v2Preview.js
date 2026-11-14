@@ -318,6 +318,56 @@ function draw(){
  menu.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();e.preventDefault();}});
  
 }
+function openChartEditor(chart,initialStructureId=''){
+ const dialog=q('#v2-chart-dialog');
+ const chosen=new Set(chart?.staffIds?.map(String)||
+  (initialStructureId?chartMemberIdsByStructure(staff,structure,initialStructureId):[]));
+ q('#v2-chart-title').textContent=(chart?'Изменить':'Новый')+' график · '+year;
+ q('#v2-chart-name').value=chart?.name||'';
+ q('#v2-chart-department').value=initialStructureId||'';
+ q('#v2-chart-search').value='';
+ q('#v2-chart-error').textContent='';
+ const visible=()=>{
+  const dep=q('#v2-chart-department').value;
+  const search=q('#v2-chart-search').value.trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
+  const members=dep?new Set(chartMemberIdsByStructure(staff,structure,dep)):null;
+  return [...staff].filter(p=>(!members||members.has(String(p.id)))&&
+    String(p.name||'').toLocaleLowerCase('ru').replace(/ё/g,'е').includes(search))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+ };
+ const render=()=>{
+  q('#v2-chart-selected-count').textContent='Выбрано: '+chosen.size;
+  q('#v2-chart-roster').innerHTML=visible().map(p=>
+   '<label><input type="checkbox" data-roster-member="'+escapeHtml(p.id)+'"'+(chosen.has(String(p.id))?' checked':'')+'>'+
+   '<span>'+escapeHtml(p.name)+(p.dismissed?' (уволен)':'')+
+   '<small>'+escapeHtml(structurePath(structure,p.structureId)||
+     structure.filter(n=>String(n.leaderId)===String(p.id)).map(n=>structurePath(structure,n.id)+' (руководитель)').join('; ')||
+     'Без подразделения')+'</small></span></label>').join('');
+ };
+ q('#v2-chart-department').onchange=render;
+ q('#v2-chart-search').oninput=render;
+ q('#v2-chart-roster').onchange=e=>{
+  const node=e.target.closest('[data-roster-member]');
+  if(!node)return;
+  if(node.checked)chosen.add(node.dataset.rosterMember);else chosen.delete(node.dataset.rosterMember);
+  q('#v2-chart-selected-count').textContent='Выбрано: '+chosen.size;
+ };
+ q('#v2-chart-select-shown').onclick=()=>{
+  for(const p of visible())chosen.add(String(p.id));render();
+ };
+ q('#v2-chart-clear-shown').onclick=()=>{
+  for(const p of visible())chosen.delete(String(p.id));render();
+ };
+ q('#v2-chart-save').onclick=()=>{
+  try{
+   const id=chart?.id||'chart-v2-'+(crypto.randomUUID?.()||String(Date.now()));
+   charts=saveChart(charts,{id,year,name:q('#v2-chart-name').value,staffIds:[...chosen]},staff);
+   selectedGraphId=String(id);
+   dirty=true;persistDraft();dialog.close();draw();
+  }catch(err){q('#v2-chart-error').textContent=err.message;}
+ };
+ render();dialog.showModal();
+}
 let directoryMode='structure';
 let selectedStructureId=null;
 let newStaffStructureId=null;
