@@ -14,7 +14,7 @@ const buildInfo=typeof __GROT_BUILD__!=='undefined'
  ?__GROT_BUILD__
  :{version:'2.0.0-dev',build:'local',commit:'local',builtAt:null};
 const buildDate=buildInfo.builtAt
- ?new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Vladivostok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(buildInfo.builtAt))
+ ?new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Vladivostok',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(buildInfo.builtAt))
  :'локальная сборка';
 
 const baseYears=[2025,2026,2027,2028];
@@ -47,7 +47,7 @@ function restoreDraftAtStartup(){
   if(!draft){localSaveStatus='Локальная копия отсутствует';return;}
   staff=draft.staff;records=draft.records;structure=draft.structure||[];year=draft.year;
   loadedSource=draft.source;dirty=draft.dirty;
-  localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU'):'');
+  localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
   importReport='Автоматически восстановлена локальная копия. Рекомендуется также сохранять резервный файл.';
  }catch{localSaveStatus='Локальное сохранение недоступно';}
 }
