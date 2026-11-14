@@ -409,3 +409,30 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  line-height:1.15;
 }
 .grot-unified-year .shared-period strong{font-size:11px;line-height:1.15}
+
+
+/* Минимум 70px для читаемых дат. При достаточной длительности
+   ширина остаётся пропорциональной календарным дням. */
+.grot-unified-year .proportional-period .proportional-fill{
+ min-width:70px;
+ container:vacation-strip / inline-size;
+}
+.grot-unified-year .shared-months-cell > .vacation-period.shared-period{
+ min-width:70px;
+ container:vacation-strip / inline-size;
+}
+.grot-unified-year .period-date-wide{
+ display:block;
+ white-space:nowrap;
+ font-size:10px;
+}
+.grot-unified-year .period-date-narrow{display:none}
+@container vacation-strip (max-width:145px){
+ .period-date-wide{display:none!important}
+ .period-date-narrow{
+  display:flex!important;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+ }
+}
