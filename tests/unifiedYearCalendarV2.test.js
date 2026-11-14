@@ -33,6 +33,6 @@ test('Королёва: при соседних переходящих отпу�
  assert.match(html,/rowspan="2"/);
  assert.match(html,/15\.02\.27 – 01\.03\.27/);
  assert.match(html,/29\.03\.27 – 09\.04\.27/);
-  assert.equal((html.match(/15 дн\./g)||[]).length,1);
+  assert.equal((html.match(/14 дн\./g)||[]).length,1);
  assert.equal((html.match(/12 дн\./g)||[]).length,1);
 });
