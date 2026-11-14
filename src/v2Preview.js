@@ -37,9 +37,16 @@ function draw(){
  const years=[...new Set([...baseYears,...records.map(r=>Number(r.year)).filter(Number.isInteger)])].sort((a,b)=>a-b);
  const active=records.filter(r=>!r.deleted);
  root.innerHTML=`
-  <header class="v2-header"><div><strong>ГРАФИК ОТПУСКОВ</strong>
-   <small>ГРОТ ${escapeHtml(buildInfo.version)} · сборка №${escapeHtml(buildInfo.build)} · ${escapeHtml(buildDate)} (Владивосток) · ${escapeHtml(buildInfo.commit)}</small></div>
-   <label>Год <select id="v2-year">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select></label>
+  <header class="v2-header">
+   <div class="v2-heading"><strong>ГРАФИК ОТПУСКОВ</strong><small>ГРОТ 2.0 · тестовая версия</small></div>
+   <div class="v2-header-controls">
+    <div class="v2-version" title="Версия, номер сборки и код изменения">
+     <strong>Версия ${escapeHtml(buildInfo.version)}</strong>
+     <span>Сборка №${escapeHtml(buildInfo.build)} · ${escapeHtml(buildDate)}</span>
+     <span>Изменение ${escapeHtml(buildInfo.commit)}</span>
+    </div>
+    <label>Год <select id="v2-year">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select></label>
+   </div>
   </header>
   <main>
    <p class="warning"><strong>Только тестирование:</strong> изменения действуют в памяти этой страницы,
