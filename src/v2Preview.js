@@ -3,7 +3,7 @@ import {addVacationPeriod,editVacationPeriod,removeVacationPeriod} from './vacat
 import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
-import {renderRangeCalendar,shiftMonth,inclusiveCalendarDays} from './periodCalendarV2.js';
+import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -93,7 +93,9 @@ function draw(){
     <div class="calendar-date-fields">
      <label>Начало <input name="start" type="date" required></label>
      <label>Конец <input name="end" type="date" required></label>
+     <label>Дней <input name="days" type="number" min="1" max="3660" step="1" inputmode="numeric" required></label>
     </div>
+    <p class="calendar-help">Выберите начало и конец в календаре — дни рассчитаются сами. Или введите начало и количество дней — конец рассчитается автоматически. Праздничные дни не учитываются.</p>
     <label>Причина изменения
      <select name="reasonPreset" required>
       <option value="">Выберите причину</option>
@@ -215,6 +217,8 @@ function openEditor(rec,{deleting=false}={}){
  form.elements.staffId.disabled=!!rec;
  form.elements.start.value=rec?.period.start||'';
  form.elements.end.value=rec?.period.end||'';
+ form.elements.days.value=form.elements.start.value&&form.elements.end.value
+  ?vacationDays(form.elements.start.value,form.elements.end.value):'';
  let calendarAnchor=(form.elements.start.value||year+'-01-01').slice(0,7);
  let calendarNext='start';
  const updateCalendar=()=>{
@@ -222,7 +226,7 @@ function openEditor(rec,{deleting=false}={}){
   q('#v2-calendar-months').innerHTML=renderRangeCalendar(start,end,calendarAnchor);
   q('#v2-calendar-hint').textContent=calendarNext==='start'?'Нажмите начало отпуска':'Нажмите конец отпуска';
   q('#v2-calendar-summary').textContent=start&&end
-   ?'Отпуск: '+dateFmt(start)+' — '+dateFmt(end)+' · '+inclusiveCalendarDays(start,end)+' календарных дней'
+   ?'Отпуск: '+dateFmt(start)+' — '+dateFmt(end)+' · '+vacationDays(start,end)+' дней отпуска'
    :start?'Начало: '+dateFmt(start)+' · выберите последний день отпуска'
    :'Нажмите на день начала отпуска';
  };
@@ -242,15 +246,38 @@ function openEditor(rec,{deleting=false}={}){
    else form.elements.end.value=date;
    calendarNext='start';
   }
+  form.elements.days.value=form.elements.start.value&&form.elements.end.value
+   ?vacationDays(form.elements.start.value,form.elements.end.value):'';
   updateCalendar();
  };
- for(const field of [form.elements.start,form.elements.end])field.onchange=()=>{
-  if(form.elements.start.value&&form.elements.end.value&&form.elements.end.value<form.elements.start.value){
-   q('#v2-error').textContent='Конец отпуска должен быть не раньше начала';
-  }else q('#v2-error').textContent='';
-  const current=form.elements.start.value||form.elements.end.value;
-  if(current)calendarAnchor=current.slice(0,7);
-  calendarNext=form.elements.start.value&&!form.elements.end.value?'end':'start';
+ form.elements.start.onchange=()=>{
+  const start=form.elements.start.value;
+  // После смены начала сохраняем указанную продолжительность.
+  if(start&&form.elements.days.value){
+   try{form.elements.end.value=endDateForDays(start,form.elements.days.value);q('#v2-error').textContent='';}
+   catch(err){q('#v2-error').textContent=err.message;}
+  }else if(start&&form.elements.end.value){
+   form.elements.days.value=vacationDays(start,form.elements.end.value);
+  }
+  if(start)calendarAnchor=start.slice(0,7);
+  calendarNext=start&&!form.elements.end.value?'end':'start';
+  updateCalendar();
+ };
+ form.elements.end.onchange=()=>{
+  const start=form.elements.start.value,end=form.elements.end.value;
+  if(start&&end&&end<start)q('#v2-error').textContent='Конец отпуска должен быть не раньше начала';
+  else q('#v2-error').textContent='';
+  form.elements.days.value=start&&end?vacationDays(start,end):'';
+  if(start)calendarAnchor=start.slice(0,7);
+  calendarNext=start&&!end?'end':'start';
+  updateCalendar();
+ };
+ form.elements.days.onchange=()=>{
+  try{
+   form.elements.end.value=endDateForDays(form.elements.start.value,form.elements.days.value);
+   q('#v2-error').textContent='';
+   calendarNext='start';
+  }catch(err){q('#v2-error').textContent=err.message;}
   updateCalendar();
  };
  updateCalendar();
