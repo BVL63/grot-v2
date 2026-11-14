@@ -168,18 +168,20 @@ function renderLane(lane){
  }
  return cells.join('');
 }
-/** Итоги отражают дни, приходящиеся на каждый месяц.
- * Не учитываем праздничные нерабочие дни (та же логика, что у периода).
+/** В итоговой строке месяцы показывают количество сотрудников в отпуске,
+ * а справа сохраняется сумма отпускных дней из столбца «Всего дней».
+ * Несколько периодов одного сотрудника в месяце дают только одного человека.
  */
 export function calculateYearTotals(view){
  const months=Array(12).fill(0);
  const byStaff=view.rows.map(row=>{
-  const perMonth=row.months.map(segments=>
-   segments.reduce((sum,segment)=>sum+vacationDays(segment.from,segment.to),0));
-  perMonth.forEach((days,index)=>{months[index]+=days;});
+  const perMonth=row.months.map((segments,index)=>{
+   if(segments.length)months[index]++;
+   return segments.reduce((sum,segment)=>sum+vacationDays(segment.from,segment.to),0);
+  });
   return {id:row.id,months:perMonth,total:perMonth.reduce((sum,days)=>sum+days,0)};
  });
- return {byStaff,months,total:months.reduce((sum,days)=>sum+days,0)};
+ return {byStaff,months,total:byStaff.reduce((sum,person)=>sum+person.total,0)};
 }
 export function renderUnifiedYearTable(view){
  const totals=calculateYearTotals(view);
@@ -193,9 +195,9 @@ export function renderUnifiedYearTable(view){
    (i===0?'<td class="employee-year-total" rowspan="'+lanes.length+'">'+sum+'</td>':'')+
    '</tr>').join('');
  }).join('');
- const footer='<tr class="year-totals-row"><th scope="row">Итого</th>'+
-  totals.months.map(days=>'<td>'+days+'</td>').join('')+
-  '<td class="year-grand-total">'+totals.total+'</td></tr>';
+ const footer='<tr class="year-totals-row"><th scope="row" title="Количество сотрудников в отпуске по месяцам">В отпуске, чел.</th>'+
+  totals.months.map(count=>'<td title="Сотрудников в отпуске: '+count+'">'+count+'</td>').join('')+
+  '<td class="year-grand-total" title="Всего отпускных дней">'+totals.total+'</td></tr>';
  return '<table class="annual-table grot-unified-year"><thead><tr><th scope="col">Сотрудник</th>'+header+
  '<th scope="col" class="year-total-header">Всего дней</th></tr></thead><tbody>'+body+
  '</tbody><tfoot>'+footer+'</tfoot></table>';
