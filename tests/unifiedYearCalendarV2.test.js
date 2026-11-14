@@ -87,7 +87,7 @@ test('У переходящих отпусков есть обе формы да
 });
 
 import {calculateYearTotals} from '../src/unifiedYearTableV2.js';
-test('Итоговый столбец и строка: суммы по месяцам и общий итог',()=>{
+test('Итоговый столбец: дни, итоговая строка: число сотрудников по месяцам',()=>{
  const people=[{id:'1',name:'Иванов И.И.'},{id:'2',name:'Петров П.П.'},{id:'3',name:'Сидоров С.С.'}];
  const items=[
   rec('a','2027-04-30','2027-05-03'),
@@ -97,12 +97,12 @@ test('Итоговый столбец и строка: суммы по меся�
  const view=buildUnifiedYearView(2027,items,people);
  const totals=calculateYearTotals(view);
  assert.equal(totals.months[3],1);
- assert.equal(totals.months[4],7); // 1–3 мая: 2 дня (1 мая исключаем), плюс 5
+ assert.equal(totals.months[4],2); // Иванов и Петров, независимо от числа дней
  assert.equal(totals.total,8);
  assert.deepEqual(totals.byStaff.map(p=>p.total),[3,5,0]);
  const html=renderUnifiedYearTable(view);
  assert.match(html,/Всего дней/);
- assert.match(html,/<tr class="year-totals-row"><th scope="row">Итого<\/th>/);
+ assert.match(html,/<tr class="year-totals-row"><th scope="row"[^>]*>В отпуске, чел\.<\/th>/);
  assert.match(html,/<td class="year-grand-total">8<\/td>/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,3);
 });
@@ -112,4 +112,23 @@ test('Итог за сотрудника выводится один раз пр
  assert.match(html,/rowspan="2"/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,1);
  assert.equal(calculateYearTotals(view).total,75);
+});
+
+test('Два отпуска одного сотрудника в месяце считаются одним человеком',()=>{
+ const people=[{id:'1',name:'Иванов И.И.'},{id:'2',name:'Петров П.П.'}];
+ const items=[
+  rec('first','2027-06-01','2027-06-05'),
+  rec('second','2027-06-20','2027-06-25'),
+  {id:'third',year:2027,staffId:'2',period:{start:'2027-06-10',end:'2027-06-14'}}
+ ];
+ const totals=calculateYearTotals(buildUnifiedYearView(2027,items,people));
+ assert.equal(totals.months[5],2);
+ assert.deepEqual(totals.byStaff.map(p=>p.total),[11,5]);
+ assert.equal(totals.total,16);
+});
+test('Переходящий отпуск учитывает сотрудника в обоих месяцах',()=>{
+ const totals=calculateYearTotals(buildUnifiedYearView(2027,[rec('a','2027-04-30','2027-05-03')],staff));
+ assert.equal(totals.months[3],1);
+ assert.equal(totals.months[4],1);
+ assert.equal(totals.total,3);
 });
