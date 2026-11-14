@@ -347,3 +347,65 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  height:56px;
  min-height:56px;
 }
+
+
+/* Несколько отпусков в одной строке, несмотря на общую колонку месяца. */
+.grot-unified-year tbody tr.vacation-lane td.shared-months-cell{
+ position:relative;
+ padding:0;
+ background:#fff;
+ height:64px;
+ overflow:visible;
+}
+.grot-unified-year .shared-month-boundary{
+ position:absolute;
+ z-index:0;
+ top:0;
+ bottom:0;
+ width:1px;
+ background:#e1e6ec;
+ pointer-events:none;
+}
+.grot-unified-year .shared-months-cell > .vacation-period.shared-period{
+ position:absolute;
+ z-index:1;
+ top:50%;
+ left:var(--shared-left);
+ right:var(--shared-right);
+ width:auto;
+ max-width:calc(100% - var(--shared-left) - 3px);
+ min-width:min(94px,calc(100% - var(--shared-left) - 3px));
+ height:52px;
+ min-height:52px;
+ transform:translateY(-50%);
+ margin:0;
+ padding:4px 3px;
+ border:1px solid #7193bc;
+ background:#e4eef9;
+ border-radius:5px;
+ color:inherit;
+ display:flex;
+ flex-direction:column;
+ justify-content:center;
+ align-items:center;
+ gap:3px;
+ white-space:normal;
+ font-size:10px;
+ line-height:1.15;
+ cursor:pointer;
+}
+.grot-unified-year .shared-months-cell > .shared-period:hover{background:#cde1fa}
+.grot-unified-year .shared-period .shared-period-dates{
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ gap:2px;
+ width:100%;
+ text-align:center;
+}
+.grot-unified-year .shared-period .shared-period-dates span{
+ font-size:10px;
+ line-height:1.15;
+}
+.grot-unified-year .shared-period strong{font-size:11px;line-height:1.15}
