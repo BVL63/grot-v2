@@ -62,7 +62,7 @@ export function fillMissingStructureCodes(nodes){
    const prefix=parent?String(parent.code)+'.':'';
    const used=result.filter(s=>String(s.id)!==id&&String(s.parentId??'')===String(node.parentId??''))
     .map(s=>String(s.code||'').trim())
-    .filter(code=>code.startsWith(prefix)&&/^\\d+$/.test(code.slice(prefix.length)))
+    .filter(code=>code.startsWith(prefix)&&/^\d+$/.test(code.slice(prefix.length)))
     .map(code=>Number(code.slice(prefix.length)));
    const next=Math.max(0,...used)+1;
    node.code=prefix+String(next).padStart(2,'0');
