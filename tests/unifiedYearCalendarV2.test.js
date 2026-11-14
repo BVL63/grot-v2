@@ -97,13 +97,13 @@ test('Итоговый столбец и строка: суммы по меся�
  const view=buildUnifiedYearView(2027,items,people);
  const totals=calculateYearTotals(view);
  assert.equal(totals.months[3],1);
- assert.equal(totals.months[4],8); // 1–3 мая: 2 дня (1 мая исключаем), плюс 5
- assert.equal(totals.total,9);
- assert.deepEqual(totals.byStaff.map(p=>p.total),[4,5,0]);
+ assert.equal(totals.months[4],7); // 1–3 мая: 2 дня (1 мая исключаем), плюс 5
+ assert.equal(totals.total,8);
+ assert.deepEqual(totals.byStaff.map(p=>p.total),[3,5,0]);
  const html=renderUnifiedYearTable(view);
  assert.match(html,/Всего дней/);
  assert.match(html,/<tr class="year-totals-row"><th scope="row">Итого<\/th>/);
- assert.match(html,/<td class="year-grand-total">9<\/td>/);
+ assert.match(html,/<td class="year-grand-total">8<\/td>/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,3);
 });
 test('Итог за сотрудника выводится один раз при двух дорожках отпусков',()=>{
@@ -111,5 +111,5 @@ test('Итог за сотрудника выводится один раз пр
  const html=renderUnifiedYearTable(view);
  assert.match(html,/rowspan="2"/);
  assert.equal((html.match(/class="employee-year-total"/g)||[]).length,1);
- assert.equal(calculateYearTotals(view).total,72);
+ assert.equal(calculateYearTotals(view).total,71);
 });
