@@ -4,6 +4,7 @@ import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
+import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import './v2Preview.css';
 
 const root=document.querySelector('#v2-root');
@@ -28,6 +29,26 @@ let records=[
 ];
 let year=2027,selected=null,dirty=false,loadedSource='Демонстрационные данные';
 let originalImport=null,importReport='',historyReview=null;
+let localSaveStatus='Локальное сохранение не проверено';
+function persistDraft(){
+ try{
+  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,year,source:loadedSource,dirty}));
+  localSaveStatus='Автосохранение на этом устройстве';
+ }catch(err){
+  localSaveStatus='Автосохранение недоступно — сохраните файл';
+ }
+}
+function restoreDraftAtStartup(){
+ try{
+  const draft=parseLocalDraft(localStorage.getItem(DRAFT_KEY));
+  if(!draft){localSaveStatus='Локальная копия отсутствует';return;}
+  staff=draft.staff;records=draft.records;year=draft.year;
+  loadedSource=draft.source;dirty=draft.dirty;
+  localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU'):'');
+  importReport='Автоматически восстановлена локальная копия. Рекомендуется также сохранять резервный файл.';
+ }catch{localSaveStatus='Локальное сохранение недоступно';}
+}
+restoreDraftAtStartup();
 const q=selector=>root.querySelector(selector);
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -50,15 +71,14 @@ function draw(){
    </div>
   </header>
   <main>
-   <p class="warning"><strong>Только тестирование:</strong> изменения действуют в памяти этой страницы,
-   исходный ГРОТ и его хранилище не изменяются. Для сохранения результата используйте «Сохранить данные».</p>
+   <p class="warning"><strong>ГРОТ 2.0 — тестовый режим.</strong> Данные автоматически сохраняются на этом устройстве в браузере. Для резервной копии используйте «Сохранить данные». Основной ГРОТ не затрагивается.</p>
    <div class="toolbar">
     <button id="v2-add">Добавить период</button>
-    <button id="v2-import">Загрузить JSON для просмотра</button>
+    <button id="v2-import">Восстановить данные</button>
     <button id="v2-export">Сохранить данные</button>
     <button id="v2-audit-open" type="button">Журнал изменений</button>
     <button id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
-    <span class="muted">${escapeHtml(loadedSource)} · ${dirty?'есть несохранённые изменения':'нет изменений'}</span>
+    <span class="muted">${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}</span>
    </div>
    <input id="v2-file" type="file" accept=".json,application/json" hidden>
    <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
@@ -118,7 +138,7 @@ function draw(){
    </form>
   </dialog>
   <footer>ГРОТ 2.0 — демонстрация · основной график не затронут</footer>`;
- q('#v2-year').onchange=e=>{year=Number(e.target.value);selected=null;draw();};
+ q('#v2-year').onchange=e=>{year=Number(e.target.value);selected=null;persistDraft();draw();};
  q('#v2-add').onclick=()=>openEditor(null);
  q('#v2-import').onclick=()=>q('#v2-file').click();
  q('#v2-file').onchange=importJson;
@@ -132,7 +152,7 @@ function draw(){
  if(stageButton)stageButton.onclick=()=>{
   if(!confirm('Добавить встроенную историю 2026 только в тестовую копию? Даты останутся помеченными как непроверенные.'))return;
   try{const staged=stageBundledHistory(records,historyReview);
-   records=staged.records;year=2026;dirty=true;
+   records=staged.records;year=2026;dirty=true;persistDraft();
    importReport='История 2026: добавлено '+staged.counts.added+', повторов '+staged.counts.duplicates+', без сопоставления '+staged.counts.unresolved+'.';
    draw();
   }catch(err){alert('История не добавлена: '+err.message);}
@@ -313,7 +333,7 @@ function openEditor(rec,{deleting=false}={}){
      id,year,staffId:person.id,staffName:person.name,chartId:null,
      start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
    }
-   dirty=true;q('#v2-dialog').close();draw();
+   dirty=true;persistDraft();q('#v2-dialog').close();draw();
   }catch(err){q('#v2-error').textContent=err.message;}
  };
  q('#v2-delete').onclick=()=>{
@@ -323,7 +343,7 @@ function openEditor(rec,{deleting=false}={}){
    if(!confirm('Удалить отпуск '+(rec.staffName||'сотрудника')+' с '+dateFmt(rec.period.start)+' по '+dateFmt(rec.period.end)+'?'))return;
    records=removeVacationPeriod(records,rec.id,editPolicy(),{
     actor:'Пользователь тестового экрана',reason,at:new Date().toISOString()});
-   dirty=true;q('#v2-dialog').close();draw();
+   dirty=true;persistDraft();q('#v2-dialog').close();draw();
   }catch(err){q('#v2-error').textContent=err.message;}
  };
  q('#v2-close').onclick=()=>q('#v2-dialog').close();
@@ -333,6 +353,7 @@ async function importJson(e){
  const file=e.target.files?.[0];if(!file)return;
  try{
   const data=JSON.parse(await file.text());
+  if(dirty&&!confirm('Текущие изменения ещё не сохранены в отдельный файл. Заменить их загружаемыми данными?'))return;
   const inspected=inspectPreviewImport(data);
   importReport='Исходных периодов: '+inspected.counts.original+
    ', преобразовано: '+inspected.counts.converted+'. '+
@@ -343,7 +364,7 @@ async function importJson(e){
   historyReview=inspected.bundledHistoryReview||null;
   loadedSource='Проверен файл: '+file.name;
   if(!records.some(r=>Number(r.year)===year))year=records[0]?.year||2027;
-  dirty=false;selected=null;draw();
+  dirty=false;selected=null;persistDraft();draw();
  }catch(err){alert('Импорт не выполнен: '+err.message);}
 }
 function downloadJson(data,name){
@@ -353,6 +374,6 @@ function downloadJson(data,name){
 }
 function exportJson(){
  downloadJson({schemaVersion:2,staff,records},'grot-v2-preview-'+year+'.json');
- dirty=false;draw();
+ dirty=false;persistDraft();draw();
 }
 draw();
