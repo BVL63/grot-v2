@@ -802,7 +802,7 @@ function openEditor(rec,{deleting=false}={}){
    if(rec)records=editVacationPeriod(records,rec.id,{
     start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
    else{
-    const person=staff.find(x=>x.id===form.elements.staffId.value);
+    const person=staff.find(x=>String(x.id)===String(form.elements.staffId.value));
     if(!person)throw new Error('Выберите сотрудника');
     const id='preview-'+(globalThis.crypto?.randomUUID?.()||String(Date.now())+'-'+records.length);
     records=addVacationPeriod(records,{
