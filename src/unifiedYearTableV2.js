@@ -52,7 +52,6 @@ const duration=(start,end)=>{
  return Number.isFinite(a)&&Number.isFinite(b)?Math.round((b-a)/86400000)+1:0;
 };
 function buildMonthCells(row){
- const used=Array.from({length:12},()=>[]);
  const reservations=new Set();
  const entries=[];
  for(const rec of row.periods){
@@ -77,7 +76,7 @@ function buildMonthCells(row){
   if(entry.merged){
    mergedByStart.set(entry.first,entry);
    for(const m of entry.all)occupied.add(m.month);
-  }else for(const segment of entry.all)blocks[segment.month].push({rec:entry.rec,segment});
+  }else for(const segment of entry.all)blocks[segment.month].push({rec:entry.rec,segment,entry});
  }
  const cells=[];
  for(let m=0;m<12;){
@@ -91,9 +90,21 @@ function buildMonthCells(row){
    // В реальном расписании этот месяц уже покрыт colspan.
    m++;
   }else{
-   cells.push('<td>'+blocks[m].map(p=>'<button type="button" class="vacation-period single-month" data-period-id="'+esc(p.rec.id)+'">'+
-    '<span>'+dateText(p.segment.from)+'</span><span>'+dateText(p.segment.to)+'</span>'+
-    '<strong>'+duration(p.rec.period.start,p.rec.period.end)+' дн.</strong></button>').join('')+'</td>');
+   cells.push('<td>'+blocks[m].map(p=>{
+    const isFirst=p.segment.month===p.entry.first;
+    const isMulti=p.entry.span>1;
+    // Продолжение отпуска не получает повторного общего числа дней.
+    // Полные даты и длительность относятся к отпуску, а не к обрезку месяца.
+    const dates=isMulti&&isFirst
+     ?'<span>'+dateText(p.rec.period.start)+' – '+dateText(p.rec.period.end)+'</span>'
+     :isMulti
+      ?'<span class="period-continuation">↳ до '+dateText(p.segment.to)+'</span>'
+      :'<span>'+dateText(p.segment.from)+'</span><span>'+dateText(p.segment.to)+'</span>';
+    const days=isFirst?'<strong>'+duration(p.rec.period.start,p.rec.period.end)+' дн.</strong>':'';
+    return '<button type="button" class="vacation-period single-month'+(isMulti?' period-fragment':'')+
+     '" data-period-id="'+esc(p.rec.id)+'" title="'+esc(dateText(p.rec.period.start)+' – '+dateText(p.rec.period.end))+'">'+
+     dates+days+'</button>';
+   }).join('')+'</td>');
    m++;
   }
  }
