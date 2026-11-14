@@ -236,3 +236,41 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
 #v2-structure-pick-dialog{
  overscroll-behavior:contain;
 }
+
+
+/* Переходящий отпуск: точная длина полосы в долях календарных месяцев.
+   Клик доступен по подписи, даже когда полоса очень короткая. */
+.grot-unified-year .vacation-period.proportional-period{
+ position:relative;
+ border:0;
+ background:transparent;
+ box-shadow:none;
+ min-height:56px;
+ gap:3px;
+ padding:19px 2px 2px;
+}
+.grot-unified-year .vacation-period.proportional-period:hover{
+ background:#f4f8ff;
+}
+.grot-unified-year .proportional-fill{
+ position:absolute;
+ top:3px;
+ height:13px;
+ border:1px solid #7193bc;
+ background:#b8d4f5;
+ border-radius:3px;
+ min-width:2px;
+ pointer-events:none;
+}
+.grot-unified-year .proportional-period-label{
+ display:block;
+ max-width:100%;
+ text-align:center;
+ white-space:nowrap;
+ font-size:11px;
+ line-height:15px;
+}
+.grot-unified-year .proportional-period strong{
+ font-size:12px;
+ line-height:15px;
+}
