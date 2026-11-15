@@ -744,3 +744,21 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  .grot-unified-year .vacation-period{font-size:8px}
  .grot-unified-year tr{break-inside:avoid}
 }
+
+
+/* Согласованное размещение: меню сразу под шапкой, график над таблицей. */
+main{padding-top:0}
+.v2-main-menu{margin:0 -2px 10px;padding:9px 2px 7px;gap:8px}
+.v2-test-notice{margin-bottom:8px}
+.v2-graph-summary{color:#50627a;font-size:12px;margin:4px 0 5px}
+.chart-selector{margin:9px 0 10px;gap:8px;align-items:center}
+.chart-selector .v2-add-period{background:#f5f9ff;border:1px solid #8ca9ca;color:#16395e}
+.chart-selector .v2-add-period:hover{background:#e1eeff}
+@media screen and (max-width:1199px){
+ main{padding-top:0}
+ .v2-main-menu{margin:0 -2px 7px;padding:7px 2px}
+ .v2-test-notice{margin-bottom:7px}
+ .v2-graph-summary{font-size:11px;line-height:1.2}
+ .chart-selector{margin:8px 0 9px;gap:6px}
+ .chart-selector .v2-add-period{padding:8px 10px;font-size:12px}
+}
