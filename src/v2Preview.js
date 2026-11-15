@@ -233,7 +233,7 @@ function draw(){
      </div>
      <p class="calendar-help">Выберите даты в календаре либо укажите начало и количество дней. Нерабочие праздничные дни не входят в продолжительность отпуска.</p>
     </div>
-    <label>Причина изменения
+    <label id="v2-reason-label">Причина изменения
      <select name="reasonPreset" required>
       <option value="">Выберите причину</option>
       <option value="По заявлению сотрудника">По заявлению сотрудника</option>
@@ -408,6 +408,10 @@ function draw(){
   }catch(err){alert('История не добавлена: '+err.message);}
  };
  const table=q('.table-wrap');
+ table.addEventListener('click',e=>{
+  const staffCell=e.target.closest('[data-staff-id]');
+  if(staffCell){openEditor(null,{staffId:staffCell.dataset.staffId});return;}
+ });
  table.addEventListener('click',e=>{
   const toggle=e.target.closest('[data-expand-month]');
   if(!toggle)return;
@@ -839,143 +843,154 @@ function renderAudit(){
   '<div>Стало: '+auditDates(a.next)+'</div></article>').join(''):
   '<p>По выбранным условиям изменений не найдено.</p>';
 }
-function openEditor(rec,{deleting=false}={}){
- selected=rec;
- const form=q('#v2-editor');
- q('#v2-dialog-title').textContent=deleting?'Удалить период':rec?'Изменить период':'Добавить период';
- q('#v2-save').hidden=deleting;
- form.elements.staffId.value=rec?.staffId||form.elements.staffId.options[0]?.value||'';
- form.elements.staffId.disabled=!!rec;
- form.elements.start.value=rec?.period.start||'';
- form.elements.end.value=rec?.period.end||'';
- const syncShownDates=()=>{
+function openEditor(rec,{deleting=false,staffId=null}={}){
+ const form=q('#v2-editor'),dialog=q('#v2-dialog');
+ const requestedId=String(rec?.staffId??staffId??staff[0]?.id??'');
+ let employeeId=requestedId,current=rec||null,editing=!!deleting,removing=!!deleting,nextClick='start';
+ const list=()=>records.filter(r=>!r.deleted&&Number(r.year)===year&&String(r.staffId)===employeeId)
+  .sort((a,b)=>a.period.start.localeCompare(b.period.start));
+ const employee=()=>staff.find(p=>String(p.id)===employeeId)||{id:employeeId,name:rec?.staffName||'Сотрудник'};
+ const sync=()=>{
   form.elements.startDisplay.value=displayDate(form.elements.start.value);
   form.elements.endDisplay.value=displayDate(form.elements.end.value);
- };
- const readShownDate=(name)=>{
-  const result=parseDisplayDate(form.elements[name+'Display'].value);
-  form.elements[name].value=result;
-  form.elements[name+'Display'].value=displayDate(result);
- };
- syncShownDates();
- form.elements.days.value=form.elements.start.value&&form.elements.end.value
-  ?vacationDays(form.elements.start.value,form.elements.end.value):'';
- let calendarAnchor=(form.elements.start.value||year+'-01-01').slice(0,7);
- let calendarNext='start';
- const updateCalendar=()=>{
-  syncShownDates();
-  const start=form.elements.start.value,end=form.elements.end.value;
-  q('#v2-calendar-months').innerHTML=renderRangeCalendar(start,end,calendarAnchor);
-  q('#v2-calendar-hint').textContent=calendarNext==='start'?'Нажмите начало отпуска':'Нажмите конец отпуска';
-  q('#v2-calendar-summary').textContent=start&&end
-   ?'Отпуск: '+dateFmt(start)+' — '+dateFmt(end)+' · '+vacationDays(start,end)+' дней отпуска'
-   :start?'Начало: '+dateFmt(start)+' · выберите последний день отпуска'
-   :'Нажмите на день начала отпуска';
- };
- q('#v2-calendar-prev').onclick=()=>{calendarAnchor=shiftMonth(calendarAnchor,-1);updateCalendar();};
- q('#v2-calendar-next').onclick=()=>{calendarAnchor=shiftMonth(calendarAnchor,1);updateCalendar();};
- q('#v2-calendar-months').onclick=e=>{
-  const day=e.target.closest('[data-calendar-day]');
-  if(!day)return;
-  const date=day.dataset.calendarDay;
-  if(calendarNext==='start'){
-   form.elements.start.value=date;
-   form.elements.end.value='';
-   calendarNext='end';
-  }else{
-   const start=form.elements.start.value;
-   if(date<start){form.elements.start.value=date;form.elements.end.value=start;}
-   else form.elements.end.value=date;
-   calendarNext='start';
-  }
   form.elements.days.value=form.elements.start.value&&form.elements.end.value
    ?vacationDays(form.elements.start.value,form.elements.end.value):'';
-  updateCalendar();
  };
- form.elements.startDisplay.onchange=()=>{
-  try{readShownDate('start');q('#v2-error').textContent='';}
-  catch(err){q('#v2-error').textContent=err.message;return;}
-  const start=form.elements.start.value;
-  // После смены начала сохраняем указанную продолжительность.
-  if(start&&form.elements.days.value){
-   try{form.elements.end.value=endDateForDays(start,form.elements.days.value);q('#v2-error').textContent='';}
-   catch(err){q('#v2-error').textContent=err.message;}
-  }else if(start&&form.elements.end.value){
-   form.elements.days.value=vacationDays(start,form.elements.end.value);
-  }
-  if(start)calendarAnchor=start.slice(0,7);
-  calendarNext=start&&!form.elements.end.value?'end':'start';
-  updateCalendar();
+ const setPeriod=p=>{form.elements.start.value=p?.period?.start||'';form.elements.end.value=p?.period?.end||'';sync();};
+ const reason=()=>{
+  const v=form.elements.reasonPreset.value;
+  const txt=String(v==='other'?form.elements.reasonOther.value:v).trim();
+  if(!txt)throw new Error('Укажите причину изменения');return txt;
  };
- form.elements.endDisplay.onchange=()=>{
-  try{readShownDate('end');q('#v2-error').textContent='';}
-  catch(err){q('#v2-error').textContent=err.message;return;}
+ const update=()=>{
+  const person=employee(),periods=list();
   const start=form.elements.start.value,end=form.elements.end.value;
-  if(start&&end&&end<start)q('#v2-error').textContent='Конец отпуска должен быть не раньше начала';
-  else q('#v2-error').textContent='';
-  form.elements.days.value=start&&end?vacationDays(start,end):'';
-  if(start)calendarAnchor=start.slice(0,7);
-  calendarNext=start&&!end?'end':'start';
-  updateCalendar();
+  const calendars=periods.filter(p=>!(editing&&current&&String(p.id)===String(current.id)))
+   .map(p=>p.period);
+  if(editing&&start&&end)calendars.push({start,end});
+  q('#v2-dialog-title').textContent=person.name+' — отпуска '+year;
+  q('#v2-calendar-months').innerHTML=renderYearVacationCalendar(year,
+   editing?start:'',editing?end:'',calendars);
+  q('#v2-calendar-summary').textContent=editing?
+   (start&&end?'Отпуск '+dateFmt(start)+' — '+dateFmt(end)+' · '+vacationDays(start,end)+' дн.':
+     start?'Выберите день окончания отпуска':'Выберите день начала отпуска'):
+   'Нажмите строку периода для выбора или «Добавить» для нового отпуска';
+  q('#v2-period-rows').innerHTML=periods.length?periods.map((p,i)=>
+   '<tr data-employee-period-id="'+escapeHtml(p.id)+'" class="'+(current&&String(current.id)===String(p.id)?'is-selected':'')+
+   '"><td>'+(i+1)+'</td><td>'+escapeHtml(dateFmt(p.period.start))+
+   '</td><td>'+escapeHtml(dateFmt(p.period.end))+'</td><td>'+
+   vacationDays(p.period.start,p.period.end)+'</td></tr>').join(''):
+   '<tr><td colspan="4">Периоды отсутствуют</td></tr>';
+  const planned=periods.reduce((a,p)=>a+vacationDays(p.period.start,p.period.end),0);
+  const raw=[person.annualVacationDays,person.vacationDays,person.leaveDays,
+   person.annualLeaveDays,person.entitlementDays,person.daysOfLeave]
+   .find(v=>v!==undefined&&v!==null&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0);
+  const available=raw===undefined?null:Number(raw);
+  q('#v2-available-days').textContent=available===null?'—':String(available);
+  q('#v2-planned-days').textContent=String(planned);
+  q('#v2-left-days').textContent=available===null?'—':String(available-planned);
+  q('#v2-period-edit-fields').hidden=!editing;
+  q('#v2-reason-label').hidden=!editing;
+  q('#v2-reason-other-wrap').hidden=!editing||form.elements.reasonPreset.value!=='other';
+  q('.v2-year-save-actions').hidden=!editing;
+  q('#v2-save').hidden=!editing||removing;
+  q('#v2-delete').hidden=!editing||!current||!removing;
+  q('#v2-period-edit').disabled=!current;
+  q('#v2-period-remove').disabled=!current;
  };
+ const newEdit=p=>{
+  current=p;editing=true;removing=false;nextClick='start';
+  setPeriod(p);form.elements.reasonPreset.value='';form.elements.reasonOther.value='';
+  q('#v2-error').textContent='';update();
+ };
+ form.elements.staffId.value=employeeId;
+ form.elements.staffId.disabled=true;
+ q('#v2-period-new').onclick=()=>newEdit(null);
+ q('#v2-period-edit').onclick=()=>{if(current)newEdit(current);};
+ q('#v2-period-remove').onclick=()=>{
+  if(!current)return;
+  newEdit(current);removing=true;update();
+  q('#v2-error').textContent='Для удаления укажите причину и нажмите «Удалить период».';
+ };
+ q('#v2-period-rows').onclick=e=>{
+  const row=e.target.closest('[data-employee-period-id]');if(!row)return;
+  current=list().find(p=>String(p.id)===row.dataset.employeePeriodId)||null;
+  editing=false;removing=false;setPeriod(current);update();
+ };
+ q('#v2-calendar-months').onclick=e=>{
+  const day=e.target.closest('[data-calendar-day]');if(!day)return;
+  if(!editing){newEdit(null);}
+  const d=day.dataset.calendarDay;
+  if(nextClick==='start'){
+   form.elements.start.value=d;form.elements.end.value='';nextClick='end';
+  }else{
+   const start=form.elements.start.value;
+   if(d<start){form.elements.start.value=d;form.elements.end.value=start;}
+   else form.elements.end.value=d;
+   nextClick='start';
+  }
+  sync();update();
+ };
+ for(const name of ['start','end']){
+  form.elements[name+'Display'].onchange=()=>{
+   try{
+    const val=parseDisplayDate(form.elements[name+'Display'].value);
+    form.elements[name].value=val;
+    if(name==='start'&&val&&form.elements.days.value){
+     form.elements.end.value=endDateForDays(val,Number(form.elements.days.value));
+    }
+    sync();q('#v2-error').textContent='';update();
+   }catch(err){q('#v2-error').textContent=err.message;}
+  };
+ }
  form.elements.days.onchange=()=>{
   try{
-   form.elements.end.value=endDateForDays(form.elements.start.value,form.elements.days.value);
-   q('#v2-error').textContent='';
-   calendarNext='start';
+   form.elements.end.value=endDateForDays(form.elements.start.value,Number(form.elements.days.value));
+   sync();q('#v2-error').textContent='';update();
   }catch(err){q('#v2-error').textContent=err.message;}
-  updateCalendar();
  };
- updateCalendar();
- form.elements.reasonPreset.value='';
- form.elements.reasonOther.value='';
- q('#v2-reason-other-wrap').hidden=true;
- form.elements.reasonOther.required=false;
- form.elements.reasonPreset.onchange=()=>{
-  const other=form.elements.reasonPreset.value==='other';
-  q('#v2-reason-other-wrap').hidden=!other;
-  form.elements.reasonOther.required=other;
-  if(other)form.elements.reasonOther.focus();
+ form.elements.reasonPreset.onchange=()=>{update();};
+ q('#v2-close-top').onclick=()=>dialog.close();
+ q('#v2-close-bottom').onclick=()=>dialog.close();
+ q('#v2-close').onclick=()=>{editing=false;removing=false;setPeriod(current);q('#v2-error').textContent='';update();};
+ q('#v2-employee-history').onclick=()=>{
+  dialog.close();
+  q('#v2-audit-year').value=String(year);
+  q('#v2-audit-search').value=employee().name;
+  renderAudit();q('#v2-audit-dialog').showModal();
  };
- const selectedReason=()=>{
-  const preset=form.elements.reasonPreset.value;
-  const reason=(preset==='other'?form.elements.reasonOther.value:preset).trim();
-  if(!reason)throw new Error('Выберите причину или укажите свою');
-  return reason;
- };
- q('#v2-error').textContent=rec?.verificationStatus==='unverified-source'?'Даты перенесены из встроенной истории, не проверены. Для корректировки укажите причину.':'';
- q('#v2-delete').hidden=!rec;
- if(deleting)q('#v2-error').textContent='Укажите причину и подтвердите удаление периода.';
  q('#v2-save').onclick=()=>{
   try{
-   readShownDate('start');readShownDate('end');
-   if(!form.elements.start.value||!form.elements.end.value)throw new Error('Заполните начало и конец отпуска');
-   const meta={actor:'Пользователь тестового экрана',reason:selectedReason(),at:new Date().toISOString()};
-   if(rec)records=editVacationPeriod(records,rec.id,{
+   form.elements.start.value=parseDisplayDate(form.elements.startDisplay.value);
+   form.elements.end.value=parseDisplayDate(form.elements.endDisplay.value);
+   if(!form.elements.start.value||!form.elements.end.value)throw new Error('Укажите начало и конец отпуска');
+   const meta={actor:'Пользователь тестового экрана',reason:reason(),at:new Date().toISOString()};
+   if(current)records=editVacationPeriod(records,current.id,{
     start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
    else{
-    const person=staff.find(x=>String(x.id)===String(form.elements.staffId.value));
-    if(!person)throw new Error('Выберите сотрудника');
+    const person=employee();
     const id='preview-'+(globalThis.crypto?.randomUUID?.()||String(Date.now())+'-'+records.length);
-    records=addVacationPeriod(records,{
-     id,year,staffId:person.id,staffName:person.name,chartId:null,
-     start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
+    records=addVacationPeriod(records,{id,year,staffId:person.id,staffName:person.name,
+     chartId:null,start:form.elements.start.value,end:form.elements.end.value},editPolicy(),meta);
+    current=records.find(p=>String(p.id)===id)||null;
    }
-   dirty=true;persistDraft();q('#v2-dialog').close();draw();
+   dirty=true;persistDraft();dialog.close();draw();
   }catch(err){q('#v2-error').textContent=err.message;}
  };
  q('#v2-delete').onclick=()=>{
   try{
-   const reason=selectedReason();
-   if(!reason)throw new Error('Укажите причину удаления');
-   if(!confirm('Удалить отпуск '+(rec.staffName||'сотрудника')+' с '+dateFmt(rec.period.start)+' по '+dateFmt(rec.period.end)+'?'))return;
-   records=removeVacationPeriod(records,rec.id,editPolicy(),{
-    actor:'Пользователь тестового экрана',reason,at:new Date().toISOString()});
-   dirty=true;persistDraft();q('#v2-dialog').close();draw();
+   if(!current)throw new Error('Период не выбран');
+   const why=reason();
+   if(!confirm('Удалить отпуск '+employee().name+' с '+dateFmt(current.period.start)+' по '+dateFmt(current.period.end)+'?'))return;
+   records=removeVacationPeriod(records,current.id,editPolicy(),
+    {actor:'Пользователь тестового экрана',reason:why,at:new Date().toISOString()});
+   dirty=true;persistDraft();dialog.close();draw();
   }catch(err){q('#v2-error').textContent=err.message;}
  };
- q('#v2-close').onclick=()=>q('#v2-dialog').close();
- q('#v2-dialog').showModal();
+ q('#v2-error').textContent='';
+ form.elements.reasonPreset.value='';form.elements.reasonOther.value='';
+ if(!rec){editing=false;}
+ setPeriod(current);update();dialog.showModal();
 }
 async function importJson(e){
  const file=e.target.files?.[0];if(!file)return;
