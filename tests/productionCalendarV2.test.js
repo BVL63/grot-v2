@@ -37,3 +37,46 @@ test('Базовые федеральные праздники остаются 
  assert.equal(isVacationHoliday('2027-02-23'),true);
  assert.equal(isVacationHoliday('2027-04-15'),false);
 });
+
+import {parseIsDayOffYear,ISDAYOFF_YEAR_URL} from '../src/productionCalendarV2.js';
+function syntheticDayOffYear(year){
+ const length=(Date.UTC(year+1,0,1)-Date.UTC(year,0,1))/86400000;
+ const flags=Array.from({length},(_,i)=>{
+  const day=new Date(Date.UTC(year,0,i+1));
+  return [0,6].includes(day.getUTCDay())?'1':'0';
+ });
+ const put=(date,status)=>{
+  const index=(Date.parse(date+'T00:00:00Z')-Date.UTC(year,0,1))/86400000;
+  flags[index]=status;
+ };
+ for(const mmdd of ['01-01','01-07','02-23','03-08','05-01','05-09','06-12','11-04'])
+  put(year+'-'+mmdd,'1');
+ if(year===2027){
+  put('2027-02-20','2');
+  put('2027-02-22','1');
+  put('2027-11-05','1');
+  put('2027-12-31','1');
+ }
+ return flags.join('');
+}
+test('Онлайн-календарь 2027: переносы, рабочая суббота и источники',()=>{
+ const raw=syntheticDayOffYear(2027);
+ const data=parseIsDayOffYear(raw,2027);
+ assert.equal(data.year,2027);
+ assert.equal(data.daysOff.includes('2027-02-22'),true);
+ assert.equal(data.daysOff.includes('2027-11-05'),true);
+ assert.equal(data.daysOff.includes('2027-12-31'),true);
+ assert.equal(data.workingWeekends.includes('2027-02-20'),true);
+ assert.equal(data.holidays.length,0);
+ assert.match(ISDAYOFF_YEAR_URL(2027),/year=2027&cc=ru&pre=1/);
+ const withMeta=validateProductionCalendar({...data,source:'isdayoff.ru',loadedAt:'2026-11-15T00:00:00Z'});
+ assert.equal(withMeta.source,'isdayoff.ru');
+ assert.equal(withMeta.loadedAt,'2026-11-15T00:00:00Z');
+});
+test('Отказываем в неполном календаре и отсутствии утверждённых переносов',()=>{
+ assert.throws(()=>parseIsDayOffYear('000001',2027),/неполный/);
+ const raw=syntheticDayOffYear(2027);
+ assert.throws(()=>parseIsDayOffYear(raw.replace(/^.{51}./,'0'),2027),/праздника|перенос|рабочий/);
+ // Год, в котором сервис подставил нули вместо реального календаря.
+ assert.throws(()=>parseIsDayOffYear('0'.repeat(365),2027),/Недостоверное число выходных/);
+});
