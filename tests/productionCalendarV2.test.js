@@ -76,7 +76,7 @@ test('Онлайн-календарь 2027: переносы, рабочая с�
 test('Отказываем в неполном календаре и отсутствии утверждённых переносов',()=>{
  assert.throws(()=>parseIsDayOffYear('000001',2027),/неполный/);
  const raw=syntheticDayOffYear(2027);
- assert.throws(()=>parseIsDayOffYear(raw.replace(/^.{52}./,'0'),2027),/праздника|перенос|рабочий/);
+ assert.throws(()=>parseIsDayOffYear(raw.slice(0,52)+'0'+raw.slice(53),2027),/праздника|перенос|рабочий/);
  // Год, в котором сервис подставил нули вместо реального календаря.
  assert.throws(()=>parseIsDayOffYear('0'.repeat(365),2027),/Недостоверное число выходных/);
 });
