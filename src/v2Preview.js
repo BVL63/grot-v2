@@ -3,7 +3,7 @@ import {addVacationPeriod,editVacationPeriod,removeVacationPeriod} from './vacat
 import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
-import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays,setProductionCalendars} from './periodCalendarV2.js';
+import {renderRangeCalendar,renderYearVacationCalendar,shiftMonth,vacationDays,endDateForDays,setProductionCalendars} from './periodCalendarV2.js';
 import {parseProductionCalendarFile,productionCalendarExample,parseIsDayOffYear,ISDAYOFF_YEAR_URL} from './productionCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
@@ -200,23 +200,39 @@ function draw(){
   </dialog>
   <dialog id="v2-dialog">
    <form method="dialog" id="v2-editor">
-    <h2 id="v2-dialog-title">Отпуск</h2>
-    <label>Сотрудник <select name="staffId" required>${graph.staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
+    <div class="v2-year-editor-heading"><h2 id="v2-dialog-title">Отпуска сотрудника</h2><button type="button" id="v2-close-top" aria-label="Закрыть">×</button></div>
+    <label class="v2-year-staff-select">Сотрудник <select name="staffId" required>${graph.staff.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
     <div class="calendar-panel">
-     <div class="calendar-bar">
-      <button type="button" id="v2-calendar-prev" aria-label="Предыдущий месяц">‹</button>
-      <strong id="v2-calendar-hint">Выберите начало отпуска</strong>
-      <button type="button" id="v2-calendar-next" aria-label="Следующий месяц">›</button>
-     </div>
-     <div id="v2-calendar-months" class="calendar-months" aria-label="Даты отпуска"></div>
+     <div id="v2-calendar-months" class="calendar-months" aria-label="Календарь года"></div>
      <p id="v2-calendar-summary" class="calendar-summary" aria-live="polite"></p>
     </div>
-    <div class="calendar-date-fields">
-     <label>Начало <input name="startDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="start" type="hidden"></label>
-     <label>Конец <input name="endDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="end" type="hidden"></label>
-     <label>Дней <input name="days" type="number" min="1" max="3660" step="1" inputmode="numeric" required></label>
+    <div class="v2-year-bottom">
+     <div class="v2-year-periods">
+      <div class="v2-period-actions">
+       <button type="button" id="v2-period-new">Добавить</button>
+       <button type="button" id="v2-period-edit">Изменить</button>
+       <button type="button" id="v2-period-remove">Удалить</button>
+      </div>
+      <div class="v2-period-list-scroll"><table class="v2-period-list">
+       <thead><tr><th>№</th><th>Начало</th><th>Конец</th><th>Дней</th></tr></thead>
+       <tbody id="v2-period-rows"></tbody>
+      </table></div>
+     </div>
+     <div class="v2-year-balances">
+      <div><strong>Доступно</strong><b id="v2-available-days">—</b></div>
+      <div><strong>Запланировано</strong><b id="v2-planned-days">—</b></div>
+      <div><strong>Осталось</strong><b id="v2-left-days">—</b></div>
+      <div class="v2-year-footer"><button type="button" id="v2-employee-history">История отпусков</button><button type="button" id="v2-close-bottom">Закрыть</button></div>
+     </div>
     </div>
-    <p class="calendar-help">Выберите начало и конец в календаре — дни рассчитаются сами. Или введите начало и количество дней — конец рассчитается автоматически. Праздничные дни не учитываются.</p>
+    <div class="v2-period-edit-fields" id="v2-period-edit-fields">
+     <div class="calendar-date-fields">
+      <label>Начало <input name="startDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="start" type="hidden"></label>
+      <label>Конец <input name="endDisplay" type="text" inputmode="numeric" placeholder="дд.мм.гг" maxlength="8" required><input name="end" type="hidden"></label>
+      <label>Дней <input name="days" type="number" min="1" max="3660" step="1" inputmode="numeric" required></label>
+     </div>
+     <p class="calendar-help">Выберите даты в календаре либо укажите начало и количество дней. Нерабочие праздничные дни не входят в продолжительность отпуска.</p>
+    </div>
     <label>Причина изменения
      <select name="reasonPreset" required>
       <option value="">Выберите причину</option>
@@ -233,9 +249,9 @@ function draw(){
      <input name="reasonOther" placeholder="Укажите свою причину">
     </label>
     <p id="v2-error" role="alert"></p>
-    <div class="actions"><button type="button" id="v2-save">Сохранить</button>
-    <button type="button" id="v2-delete">Удалить</button>
-    <button type="button" id="v2-close">Закрыть</button></div>
+    <div class="actions v2-year-save-actions"><button type="button" id="v2-save">Сохранить период</button>
+    <button type="button" id="v2-delete">Удалить период</button>
+    <button type="button" id="v2-close">Отмена</button></div>
    </form>
   </dialog>
   <footer>ГРОТ 2.0 — демонстрация · основной график не затронут</footer>`;
