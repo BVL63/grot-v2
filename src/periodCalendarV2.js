@@ -51,7 +51,7 @@ export function endDateForDays(start,days){
  throw new RangeError('Период слишком длинный');
 }
 
-function renderMonth(anchor,start,end){
+function renderMonth(anchor,start,end,periods=[]){
  const [y,m]=anchor.split('-').map(Number);
  const first=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7;
  const count=new Date(Date.UTC(y,m,0)).getUTCDate();
@@ -60,6 +60,7 @@ function renderMonth(anchor,start,end){
  for(let day=1;day<=count;day++){
   const date=anchor+'-'+String(day).padStart(2,'0');
   const classes=['calendar-day'];
+  if(periods.some(p=>p?.start<=date&&p?.end>=date))classes.push('year-existing-leave');
   if(start&&end&&date>=start&&date<=end)classes.push('in-range');
   if(date===start)classes.push('range-start');
   if(date===end)classes.push('range-end');
@@ -80,4 +81,10 @@ export function inclusiveCalendarDays(start,end){
  if(!validIsoDate(start)||!validIsoDate(end)||end<start)return 0;
  const a=Date.parse(start+'T12:00:00Z'),b=Date.parse(end+'T12:00:00Z');
  return Math.round((b-a)/86400000)+1;
+}
+
+/** Годовая сетка отпусков: 12 месяцев с подсветкой всех периодов сотрудника. */
+export function renderYearVacationCalendar(year,start,end,periods=[]){
+ if(!Number.isInteger(Number(year))||Number(year)<1900||Number(year)>2200)throw new RangeError('Неверный год');
+ return Array.from({length:12},(_,m)=>renderMonth(String(year)+'-'+String(m+1).padStart(2,'0'),start,end,periods)).join('');
 }
