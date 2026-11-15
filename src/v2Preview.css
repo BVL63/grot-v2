@@ -762,3 +762,14 @@ main{padding-top:0}
  .chart-selector{margin:8px 0 9px;gap:6px}
  .chart-selector .v2-add-period{padding:8px 10px;font-size:12px}
 }
+
+
+/* Загрузка производственного календаря из Сервиса. */
+.v2-production-dialog{width:min(610px,96vw);max-height:90dvh;overflow:auto}
+.v2-production-dialog .directory-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.v2-production-dialog label{display:flex;align-items:center;flex-direction:row;gap:10px;font-weight:600}
+.v2-production-dialog .v2-production-preview{background:#edf4fc;border-radius:5px;padding:10px;margin:10px 0;min-height:34px;font-size:13px}
+.v2-production-dialog #v2-production-error{color:#a02727;font-size:13px}
+.v2-production-dialog button:disabled{opacity:.45;cursor:default}
+.calendar-day.calendar-day-off:not(.in-range){background:#f2f2f6;color:#8f3843}
+.calendar-day.calendar-work-weekend:not(.in-range){box-shadow:inset 0 0 0 1px #93b996}
