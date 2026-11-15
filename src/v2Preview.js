@@ -101,14 +101,14 @@ function draw(){
    <details class="v2-test-notice"><summary><strong>ГРОТ 2.0 · тестовый режим</strong><span> · данные сохраняются на этом устройстве</span></summary><p>Данные автоматически сохраняются в браузере. Для резервной копии используйте «Сохранить данные». Основной ГРОТ не затрагивается.</p></details>
    <div class="v2-graph-summary">Сотрудников: ${graph.staff.length} · Периодов за ${year} год: ${graph.records.filter(r=>Number(r.year)===year).length}</div>
    <div class="v2-save-indicator" title="${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}"><span>${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}</span></div>
+   <input id="v2-file" type="file" accept=".json,application/json" hidden>
+   <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
+   ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
    <div class="chart-selector"><label>График <select id="v2-chart"><option value="">Общий график</option>${chartOptions}</select></label>
     <button type="button" id="v2-chart-new">Новый график</button>
     <button type="button" id="v2-chart-edit" ${selectedGraphId?'':'disabled'}>Редактировать</button>
     <button type="button" id="v2-chart-delete" ${selectedGraphId?'':'disabled'}>Удалить</button>
     <button type="button" id="v2-add" class="v2-add-period">Добавить период</button></div>
-   <input id="v2-file" type="file" accept=".json,application/json" hidden>
-   <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
-   ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
    <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,graph.records,graph.staff),{expandedMonth})}</div>
   </main>
   <div id="v2-period-menu" class="period-context-menu" role="menu" aria-label="Действия с периодом" hidden>
