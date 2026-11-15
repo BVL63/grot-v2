@@ -773,3 +773,15 @@ main{padding-top:0}
 .v2-production-dialog button:disabled{opacity:.45;cursor:default}
 .calendar-day.calendar-day-off:not(.in-range){background:#f2f2f6;color:#8f3843}
 .calendar-day.calendar-work-weekend:not(.in-range){box-shadow:inset 0 0 0 1px #93b996}
+
+
+/* Состав графика: чекбокс сотрудника на один уровень правее
+   чекбокса родительского звена. У звена есть дополнительный
+   значок раскрытия (18px + 8px), которого у сотрудника нет. */
+#v2-chart-roster .chart-tree-person{
+ padding-left:calc(9px + var(--depth)*19px + 26px);
+}
+#v2-chart-roster .chart-tree-person>span{
+ min-width:0;
+ overflow-wrap:anywhere;
+}
