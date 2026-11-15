@@ -4,7 +4,7 @@ import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
 import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays,setProductionCalendars} from './periodCalendarV2.js';
-import {parseProductionCalendarFile,productionCalendarExample} from './productionCalendarV2.js';
+import {parseProductionCalendarFile,productionCalendarExample,parseIsDayOffYear,ISDAYOFF_YEAR_URL} from './productionCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
@@ -127,9 +127,11 @@ function draw(){
    <p id="v2-production-current" class="muted"></p>
    <p class="muted">Формат JSON или CSV (дата;тип). Типы: <strong>праздник</strong>, <strong>выходной</strong>, <strong>рабочий</strong>. Праздники исключаются из длительности отпуска, а перенесённые выходные — нет.</p>
    <div class="directory-pick-footer">
+    <button type="button" id="v2-production-auto">Обновить из интернета</button>
     <button type="button" id="v2-production-choose">Загрузить файл</button>
     <button type="button" id="v2-production-template">Образец JSON</button>
    </div>
+   <p class="muted">Интернет-источник: <a href="https://isdayoff.ru" target="_blank" rel="noopener noreferrer">isdayoff.ru</a>, календарь РФ для пятидневной недели. Данные сервиса проверяются перед применением. Это не официальный государственный реестр.</p>
    <div id="v2-production-preview" class="v2-production-preview" aria-live="polite"></div>
    <p id="v2-production-error" role="alert"></p>
    <div class="directory-pick-footer">
@@ -299,7 +301,7 @@ function draw(){
  const renderProductionState=()=>{
   const current=productionCalendars[productionYear.value];
   q('#v2-production-current').textContent=current
-   ?'Загружен календарь '+current.year+': праздничных '+current.holidays.length+
+   ?'Загружен календарь '+current.year+(current.source?' · '+current.source:'')+(current.loadedAt?' · '+new Date(current.loadedAt).toLocaleDateString('ru-RU'):'')+': праздничных '+current.holidays.length+
     ', дополнительных выходных '+current.daysOff.length+
     ', рабочих выходных '+current.workingWeekends.length
    :'Для '+productionYear.value+' года загруженный календарь отсутствует. Применяются базовые праздничные дни РФ.';
@@ -314,6 +316,35 @@ function draw(){
  };
  productionYear.onchange=()=>{productionPending=null;q('#v2-production-preview').textContent='';q('#v2-production-apply').disabled=true;renderProductionState();};
  q('#v2-production-close').onclick=()=>productionDialog.close();
+ q('#v2-production-auto').onclick=async()=>{
+  const target=Number(productionYear.value);
+  const button=q('#v2-production-auto');
+  button.disabled=true;
+  button.textContent='Получаем календарь…';
+  productionPending=null;
+  q('#v2-production-apply').disabled=true;
+  q('#v2-production-error').textContent='';
+  q('#v2-production-preview').textContent='Запрос к isdayoff.ru за '+target+' год. Проверяем все даты и переносы.';
+  try{
+   const controller=new AbortController();
+   const timeout=setTimeout(()=>controller.abort(),15000);
+   let response;
+   try{response=await fetch(ISDAYOFF_YEAR_URL(target),{signal:controller.signal,cache:'no-store'});}
+   finally{clearTimeout(timeout);}
+   if(!response.ok)throw new Error('HTTP '+response.status+' — сервис недоступен');
+   const result=parseIsDayOffYear(await response.text(),target);
+   if(Number(productionYear.value)!==target)throw new Error('Выбран другой год, повторите загрузку');
+   productionPending={...result,source:'isdayoff.ru (пятидневка)',loadedAt:new Date().toISOString()};
+   q('#v2-production-preview').textContent='Получено из интернета за '+target+' год: выходных сверх обычных суббот и воскресений — '+result.daysOff.length+
+     ', рабочих суббот и воскресений — '+result.workingWeekends.length+
+     '. Федеральные праздники учитываются отдельно по ТК РФ. Проверьте календарь перед применением.';
+   q('#v2-production-apply').disabled=false;
+  }catch(err){
+   q('#v2-production-error').textContent='Автоматическая загрузка не выполнена: '+(err.name==='AbortError'?'истекло время ожидания':err.message)+
+     '. Можно загрузить CSV или JSON вручную.';
+   q('#v2-production-preview').textContent='';
+  }finally{button.disabled=false;button.textContent='Обновить из интернета';}
+ };
  q('#v2-production-choose').onclick=()=>q('#v2-production-file').click();
  q('#v2-production-template').onclick=()=>downloadJson(productionCalendarExample(Number(productionYear.value)),'Grot_2-calendar-example-'+productionYear.value+'.json');
  q('#v2-production-file').onchange=async e=>{
@@ -321,7 +352,7 @@ function draw(){
   try{
    const parsed=parseProductionCalendarFile(await file.text(),file.name,Number(productionYear.value));
    if(parsed.year!==Number(productionYear.value))throw new Error('Год файла '+parsed.year+' отличается от выбранного '+productionYear.value);
-   productionPending=parsed;
+   productionPending={...parsed,source:'Файл: '+file.name,loadedAt:new Date().toISOString()};
    q('#v2-production-preview').textContent='Файл: '+file.name+' · Год: '+parsed.year+
     ' · Праздничных: '+parsed.holidays.length+
     ' · Выходных: '+parsed.daysOff.length+
