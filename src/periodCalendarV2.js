@@ -15,7 +15,20 @@ const RF_HOLIDAYS=new Set([
  '01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08',
  '02-23','03-08','05-01','05-09','06-12','11-04'
 ]);
-export const isVacationHoliday=iso=>validIsoDate(iso)&&RF_HOLIDAYS.has(iso.slice(5));
+let importedCalendars={};
+/** Применяет календари из текущей копии данных, без сетевого доступа. */
+export function setProductionCalendars(calendars={}){
+ importedCalendars=calendars;
+}
+export function productionCalendarDay(iso){
+ if(!validIsoDate(iso))return {holiday:false,dayOff:false,workingWeekend:false};
+ const cal=importedCalendars[iso.slice(0,4)];
+ const holiday=RF_HOLIDAYS.has(iso.slice(5))||!!cal?.holidays?.includes(iso);
+ const workingWeekend=!!cal?.workingWeekends?.includes(iso);
+ const weekend=[0,6].includes(new Date(iso+'T12:00:00Z').getUTCDay());
+ return {holiday,workingWeekend,dayOff:!holiday&&!workingWeekend&&(weekend||!!cal?.daysOff?.includes(iso))};
+}
+export const isVacationHoliday=iso=>productionCalendarDay(iso).holiday;
 export function vacationDays(start,end){
  if(!validIsoDate(start)||!validIsoDate(end)||end<start)return 0;
  let count=0;
@@ -50,7 +63,10 @@ function renderMonth(anchor,start,end){
   if(start&&end&&date>=start&&date<=end)classes.push('in-range');
   if(date===start)classes.push('range-start');
   if(date===end)classes.push('range-end');
-  if(isVacationHoliday(date))classes.push('calendar-holiday');
+  const productionDay=productionCalendarDay(date);
+  if(productionDay.holiday)classes.push('calendar-holiday');
+  else if(productionDay.dayOff)classes.push('calendar-day-off');
+  else if(productionDay.workingWeekend)classes.push('calendar-work-weekend');
   const aria=date===start&&date===end?'Начало и конец':date===start?'Начало отпуска':date===end?'Конец отпуска':'';
   cells.push('<button type="button" class="'+classes.join(' ')+'" data-calendar-day="'+date+'" aria-label="'+date+(aria?', '+aria:'')+'">'+day+'</button>');
  }
