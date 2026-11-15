@@ -198,6 +198,35 @@ function draw(){
    <p id="v2-audit-count" class="muted"></p>
    <div class="audit-results" id="v2-audit-results"></div>
   </dialog>
+  <dialog id="v2-quick-dialog"><form id="v2-quick-form" method="dialog">
+  <div class="v2-quick-heading"><h2 id="v2-quick-title">Изменить период</h2><button type="button" id="v2-quick-x" aria-label="Закрыть">×</button></div>
+  <p id="v2-quick-employee"></p>
+  <div class="calendar-panel"><div class="calendar-bar">
+  <button type="button" id="v2-quick-prev" aria-label="Предыдущий месяц">‹</button>
+  <strong id="v2-quick-hint">Выберите даты</strong>
+  <button type="button" id="v2-quick-next" aria-label="Следующий месяц">›</button></div>
+  <div id="v2-quick-months" class="calendar-months"></div><p id="v2-quick-summary" class="calendar-summary"></p></div>
+  <div class="calendar-date-fields">
+   <label>Начало<input type="text" name="startDisplay" inputmode="numeric" maxlength="8"></label>
+   <label>Конец<input type="text" name="endDisplay" inputmode="numeric" maxlength="8"></label>
+   <label>Дней<input type="number" name="days" min="1" max="3660"></label>
+  </div>
+  <label>Причина изменения<select name="reasonPreset">
+   <option value="">Выберите причину</option>
+   <option value="По заявлению сотрудника">По заявлению сотрудника</option>
+   <option value="Производственная необходимость">Производственная необходимость</option>
+   <option value="По согласованию сторон">По согласованию сторон</option>
+   <option value="Исправление ошибки в графике">Исправление ошибки в графике</option>
+   <option value="Корректировка">Корректировка</option>
+   <option value="Отмена отпуска">Отмена отпуска</option>
+   <option value="other">Другая причина…</option>
+  </select></label>
+  <label id="v2-quick-other-label" hidden>Уточните причину<input name="reasonOther"></label>
+  <p id="v2-quick-error" role="alert"></p>
+  <div class="actions"><button type="button" id="v2-quick-save">Сохранить</button>
+  <button type="button" id="v2-quick-delete">Удалить</button>
+  <button type="button" id="v2-quick-close">Закрыть</button></div>
+  </form></dialog>
   <dialog id="v2-dialog">
    <form method="dialog" id="v2-editor">
     <div class="v2-year-editor-heading"><h2 id="v2-dialog-title">Отпуска сотрудника</h2><button type="button" id="v2-close-top" aria-label="Закрыть">×</button></div>
@@ -449,7 +478,7 @@ function draw(){
   if(!menu.hidden){hideMenu();return;}
   if(!node)return;
   const rec=chosen(node);
-  if(rec)openEditor(rec);
+  if(rec)openQuickPeriodEditor(rec);
  });
  table.addEventListener('pointerdown',e=>{
   if(e.pointerType!=='touch')return;
@@ -471,8 +500,8 @@ function draw(){
  table.addEventListener('pointerup',endTouch);
  table.addEventListener('pointercancel',endTouch);
  table.addEventListener('scroll',hideMenu,{passive:true});
- q('#v2-menu-edit').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec);};
- q('#v2-menu-delete').onclick=()=>{const rec=selected;hideMenu();if(rec)openEditor(rec,{deleting:true});};
+ q('#v2-menu-edit').onclick=()=>{const rec=selected;hideMenu();if(rec)openQuickPeriodEditor(rec);};
+ q('#v2-menu-delete').onclick=()=>{const rec=selected;hideMenu();if(rec)openQuickPeriodEditor(rec,{deleting:true});};
  root.onclick=e=>{if(!e.target.closest('#v2-period-menu')&&!e.target.closest('[data-period-id]'))hideMenu();};
  menu.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();e.preventDefault();}});
  
@@ -842,6 +871,80 @@ function renderAudit(){
   '<div>Было: '+auditDates(a.previous)+'</div>'+
   '<div>Стало: '+auditDates(a.next)+'</div></article>').join(''):
   '<p>По выбранным условиям изменений не найдено.</p>';
+}
+function openQuickPeriodEditor(rec,{deleting=false}={}){
+ const dialog=q('#v2-quick-dialog'),form=q('#v2-quick-form');
+ const person=staff.find(p=>String(p.id)===String(rec.staffId));
+ q('#v2-quick-title').textContent=deleting?'Удалить период':'Изменить период';
+ q('#v2-quick-employee').textContent=(person?.name||rec.staffName||'Сотрудник')+' · '+year;
+ let start=rec.period.start,end=rec.period.end,anchor=start.slice(0,7),next='start';
+ const error=msg=>{q('#v2-quick-error').textContent=msg;};
+ const show=()=>{
+  q('#v2-quick-months').innerHTML=renderRangeCalendar(start,end,anchor);
+  q('#v2-quick-hint').textContent=next==='start'?'Выберите начало отпуска':'Выберите конец отпуска';
+  q('#v2-quick-summary').textContent=start&&end?dateFmt(start)+' — '+dateFmt(end)+' · '+vacationDays(start,end)+' дн.':'Выберите конец отпуска';
+  form.elements.startDisplay.value=displayDate(start);
+  form.elements.endDisplay.value=displayDate(end);
+  form.elements.days.value=start&&end?vacationDays(start,end):'';
+ };
+ q('#v2-quick-prev').onclick=()=>{anchor=shiftMonth(anchor,-1);show();};
+ q('#v2-quick-next').onclick=()=>{anchor=shiftMonth(anchor,1);show();};
+ q('#v2-quick-months').onclick=e=>{
+  const d=e.target.closest('[data-calendar-day]')?.dataset.calendarDay;if(!d)return;
+  if(next==='start'){start=d;end='';next='end';}
+  else{if(d<start){end=start;start=d;}else end=d;next='start';}
+  show();
+ };
+ form.elements.startDisplay.onchange=()=>{
+  try{const a=parseDisplayDate(form.elements.startDisplay.value);if(!a)throw Error('Неверная дата начала');
+   const days=Number(form.elements.days.value);start=a;
+   if(days>0)end=endDateForDays(start,days);
+   anchor=start.slice(0,7);error('');show();
+  }catch(err){error(err.message);}
+ };
+ form.elements.endDisplay.onchange=()=>{
+  try{const b=parseDisplayDate(form.elements.endDisplay.value);
+   if(!b||b<start)throw Error('Конец должен быть не раньше начала');
+   end=b;error('');show();
+  }catch(err){error(err.message);}
+ };
+ form.elements.days.onchange=()=>{
+  try{end=endDateForDays(start,form.elements.days.value);error('');show();}
+  catch(err){error(err.message);}
+ };
+ form.elements.reasonPreset.value='';form.elements.reasonOther.value='';
+ form.elements.reasonPreset.onchange=()=>{
+  q('#v2-quick-other-label').hidden=form.elements.reasonPreset.value!=='other';
+ };
+ q('#v2-quick-other-label').hidden=true;
+ const reason=()=>{
+  const v=form.elements.reasonPreset.value;
+  const value=String(v==='other'?form.elements.reasonOther.value:v).trim();
+  if(!value)throw Error('Укажите причину изменения');return value;
+ };
+ const close=()=>dialog.close();
+ q('#v2-quick-x').onclick=close;q('#v2-quick-close').onclick=close;
+ q('#v2-quick-save').hidden=deleting;
+ q('#v2-quick-delete').hidden=!deleting;
+ q('#v2-quick-save').onclick=()=>{
+  try{const a=parseDisplayDate(form.elements.startDisplay.value);
+   const b=parseDisplayDate(form.elements.endDisplay.value);
+   if(!a||!b||b<a)throw Error('Укажите правильные даты');
+   records=editVacationPeriod(records,rec.id,{start:a,end:b},editPolicy(),
+    {actor:'Пользователь тестового экрана',reason:reason(),at:new Date().toISOString()});
+   dirty=true;persistDraft();close();draw();
+  }catch(err){error(err.message);}
+ };
+ q('#v2-quick-delete').onclick=()=>{
+  try{const why=reason();
+   if(!confirm('Удалить отпуск '+(person?.name||rec.staffName||'сотрудника')+' с '+dateFmt(rec.period.start)+' по '+dateFmt(rec.period.end)+'?'))return;
+   records=removeVacationPeriod(records,rec.id,editPolicy(),
+    {actor:'Пользователь тестового экрана',reason:why,at:new Date().toISOString()});
+   dirty=true;persistDraft();close();draw();
+  }catch(err){error(err.message);}
+ };
+ error(deleting?'Укажите причину удаления периода.':'');
+ show();dialog.showModal();
 }
 function openEditor(rec,{deleting=false,staffId=null}={}){
  const form=q('#v2-editor'),dialog=q('#v2-dialog');
