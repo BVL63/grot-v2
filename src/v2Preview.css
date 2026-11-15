@@ -657,3 +657,35 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
   min-width:90px;
  }
 }
+
+
+/* Компактная панель управления, особенно на iPad. */
+.v2-test-notice{
+ margin:0 0 12px;
+ border:1px solid #e2c98c;
+ border-radius:7px;
+ background:#fff7e5;
+ padding:9px 12px;
+ font-size:13px;
+}
+.v2-test-notice summary{cursor:pointer;line-height:1.5}
+.v2-test-notice summary strong{font-weight:700}
+.v2-test-notice p{margin:8px 0 0;line-height:1.45}
+.v2-save-indicator{
+ font-size:12px;color:#50627a;margin:0 0 6px;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#v2-import-report:empty{display:none}
+@media screen and (max-width:1199px){
+ main{padding-top:10px}
+ .v2-test-notice{margin:0 0 10px;padding:6px 10px;font-size:12px}
+ .chart-selector{margin:7px 0 8px;gap:7px 9px}
+ .chart-selector select{min-width:175px;max-width:250px;padding:7px}
+ .chart-selector button{padding:8px 10px;font-size:12px}
+ .chart-selector .v2-chart-hint{display:none}
+ .chart-selector>.muted:not(.v2-chart-hint){font-size:12px}
+ .toolbar{margin:8px 0 5px;gap:6px}
+ .toolbar button{padding:8px 10px;font-size:12px}
+ .v2-save-indicator{margin:5px 0;font-size:11px}
+ #v2-import-report:not(:empty){font-size:11px;line-height:1.25;margin:5px 0}
+}
