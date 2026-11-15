@@ -89,15 +89,23 @@ function draw(){
     <button type="button" id="v2-chart-delete" ${selectedGraphId?'':'disabled'}>Удалить график</button>
     <span class="muted">Сотрудников: ${graph.staff.length} · Периодов за ${year} год: ${graph.records.filter(r=>Number(r.year)===year).length}</span>
     <span class="muted v2-chart-hint">Изменения отображаются в общем графике автоматически</span></div>
-   <div class="toolbar">
-    <button id="v2-structure">Структура</button>
-    <button id="v2-staff">Сотрудники</button>
-    <button id="v2-add">Добавить период</button>
-    <button id="v2-import">Восстановить данные</button>
-    <button id="v2-export">Сохранить данные</button>
-    <button id="v2-audit-open" type="button">Журнал изменений</button>
-    <button id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
-   </div>
+   <nav class="v2-main-menu" aria-label="Меню программы">
+    <details class="v2-nav-item"><summary>Справочники</summary><div class="v2-nav-panel">
+      <button type="button" id="v2-structure">Структура предприятия</button>
+      <button type="button" id="v2-staff">Сотрудники</button>
+    </div></details>
+    <details class="v2-nav-item"><summary>Печать</summary><div class="v2-nav-panel">
+      <button type="button" id="v2-print-graph">Печать текущего графика</button>
+    </div></details>
+    <details class="v2-nav-item"><summary>Сервис</summary><div class="v2-nav-panel">
+      <button type="button" id="v2-import">Восстановить данные</button>
+      <button type="button" id="v2-export">Сохранить данные</button>
+      <button type="button" id="v2-audit-open">Журнал изменений</button>
+      <button type="button" id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
+      <button type="button" id="v2-reload">Обновить</button>
+    </div></details>
+    <button type="button" id="v2-add" class="v2-add-period">Добавить период</button>
+   </nav>
    <div class="v2-save-indicator" title="${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}"><span>${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}</span></div>
    <input id="v2-file" type="file" accept=".json,application/json" hidden>
    <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
@@ -219,6 +227,16 @@ function draw(){
   selectedGraphId='';dirty=true;persistDraft();draw();
  };
  q('#v2-chart-close').onclick=()=>q('#v2-chart-dialog').close();
+ q('#v2-print-graph').onclick=()=>window.print();
+ q('#v2-reload').onclick=()=>window.location.reload();
+ root.querySelectorAll('.v2-nav-item').forEach(item=>{
+  item.addEventListener('toggle',()=>{
+   if(!item.open)return;
+   root.querySelectorAll('.v2-nav-item').forEach(other=>{if(other!==item)other.open=false;});
+  });
+  item.querySelectorAll('button').forEach(button=>
+   button.addEventListener('click',()=>{item.open=false;}));
+ });
  q('#v2-add').onclick=()=>openEditor(null);
  q('#v2-structure').onclick=()=>openDirectory('structure');
  q('#v2-staff').onclick=()=>openDirectory('staff');
