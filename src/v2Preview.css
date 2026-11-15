@@ -689,3 +689,58 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  .v2-save-indicator{margin:5px 0;font-size:11px}
  #v2-import-report:not(:empty){font-size:11px;line-height:1.25;margin:5px 0}
 }
+
+
+/* Верхнее меню — вместо длинной панели кнопок. */
+.v2-main-menu{
+ display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+ margin:9px 0 7px;position:relative;z-index:8;
+}
+.v2-nav-item{position:relative;flex:none}
+.v2-nav-item>summary{
+ list-style:none;cursor:pointer;padding:9px 14px;
+ background:#21456e;color:#fff;border-radius:5px;
+ font-weight:600;font-size:13px;
+}
+.v2-nav-item>summary::-webkit-details-marker{display:none}
+.v2-nav-item>summary:hover,.v2-nav-item[open]>summary{background:#31638f}
+.v2-nav-panel{
+ position:absolute;top:calc(100% + 4px);left:0;
+ z-index:15;display:flex;flex-direction:column;
+ min-width:210px;max-width:min(300px,90vw);padding:5px;
+ background:white;border:1px solid #b8c7da;border-radius:7px;
+ box-shadow:0 6px 18px #15263f30;
+}
+.v2-nav-panel button{
+ background:transparent;border:0;border-radius:4px;
+ color:#193652;text-align:left;padding:10px 12px;
+ font:inherit;font-size:13px;white-space:nowrap;cursor:pointer;
+}
+.v2-nav-panel button:hover,.v2-nav-panel button:focus{background:#e4eef9}
+.v2-nav-panel button:disabled{opacity:.45;cursor:default}
+.v2-add-period{
+ border:0;border-radius:5px;padding:9px 14px;
+ background:#21456e;color:#fff;font-weight:600;cursor:pointer;font-size:13px;
+}
+.v2-add-period:hover{background:#31638f}
+@media(max-width:1199px){
+ .v2-main-menu{gap:6px;margin:7px 0 5px}
+ .v2-nav-item>summary,.v2-add-period{padding:9px 11px;font-size:12px}
+}
+@media print{
+ @page{size:A4 landscape;margin:8mm}
+ .v2-main-menu,.chart-selector,.v2-save-indicator,.v2-test-notice,
+ .v2-version,.v2-header-controls,#v2-import-report,footer,
+ .warning,dialog,.period-context-menu{display:none!important}
+ body,:root{background:white!important;color:black}
+ main{max-width:none;padding:0}
+ .v2-header{background:white!important;color:black!important;padding:0 0 8px}
+ .v2-heading strong{font-size:16px}
+ .table-wrap{overflow:visible;border:0}
+ .grot-unified-year{width:100%!important;min-width:0!important;table-layout:fixed}
+ .grot-unified-year th[scope=row]{width:16%!important;min-width:0!important}
+ .grot-unified-year td{font-size:8px}
+ .grot-unified-year thead th{font-size:9px}
+ .grot-unified-year .vacation-period{font-size:8px}
+ .grot-unified-year tr{break-inside:avoid}
+}
