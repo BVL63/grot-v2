@@ -113,7 +113,7 @@ function draw(){
     <button type="button" id="v2-chart-new">Новый график</button>
     <button type="button" id="v2-chart-edit" ${selectedGraphId?'':'disabled'}>Редактировать</button>
     <button type="button" id="v2-chart-delete" ${selectedGraphId?'':'disabled'}>Удалить</button>
-    <button type="button" id="v2-add" class="v2-add-period">Добавить период</button></div>
+   </div>
    <div class="table-wrap">${renderUnifiedYearTable(buildUnifiedYearView(year,graph.records,graph.staff),{expandedMonth})}</div>
   </main>
   <div id="v2-period-menu" class="period-context-menu" role="menu" aria-label="Действия с периодом" hidden>
@@ -260,7 +260,6 @@ function draw(){
   item.querySelectorAll('button').forEach(button=>
    button.addEventListener('click',()=>{item.open=false;}));
  });
- q('#v2-add').onclick=()=>openEditor(null);
  q('#v2-structure').onclick=()=>openDirectory('structure');
  q('#v2-staff').onclick=()=>openDirectory('staff');
  q('#v2-directory-close').onclick=()=>q('#v2-directory-dialog').close();
