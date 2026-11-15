@@ -1,5 +1,6 @@
 import {inspectPreviewImport} from './previewImportV2.js';
 import {validateCharts} from './chartRosterV2.js';
+import {validateProductionCalendars} from './productionCalendarV2.js';
 export const DRAFT_KEY='grot-v2-local-draft-v1';
 export function parseLocalDraft(raw){
  if(!raw)return null;
@@ -9,10 +10,10 @@ export function parseLocalDraft(raw){
  try{
   const checked=inspectPreviewImport({schemaVersion:2,records:parsed.records,staff:parsed.staff,structure:parsed.structure||[]});
   if(!checked.ok)return null;
-  return {staff:checked.staff,records:checked.records,structure:checked.structure,charts:validateCharts(parsed.charts||[],checked.staff),year:Number.isInteger(parsed.year)?parsed.year:2027,
+  return {staff:checked.staff,records:checked.records,structure:checked.structure,charts:validateCharts(parsed.charts||[],checked.staff),productionCalendars:validateProductionCalendars(parsed.productionCalendars||{}),year:Number.isInteger(parsed.year)?parsed.year:2027,
    source:String(parsed.source||'Локальное сохранение'),savedAt:parsed.savedAt||null,dirty:!!parsed.dirty};
  }catch{return null;}
 }
-export function makeLocalDraft({staff,records,structure=[],charts=[],year,source,dirty}){
- return JSON.stringify({schemaVersion:2,draftType:'grot-v2-local',staff,records,structure,charts,year,source,dirty,savedAt:new Date().toISOString()});
+export function makeLocalDraft({staff,records,structure=[],charts=[],productionCalendars={},year,source,dirty}){
+ return JSON.stringify({schemaVersion:2,draftType:'grot-v2-local',staff,records,structure,charts,productionCalendars,year,source,dirty,savedAt:new Date().toISOString()});
 }
