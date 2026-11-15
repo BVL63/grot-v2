@@ -625,3 +625,35 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
  left:0;
  z-index:4;
 }
+
+
+/* iPad и узкие экраны: не сжимать 12 месяцев до ширины планшета.
+   Прокручиваем таблицу по горизонтали внутри её контейнера. */
+@media screen and (max-width:1199px){
+ .table-wrap{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+ }
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded){
+  width:1710px;
+  min-width:1710px;
+  max-width:none;
+  table-layout:fixed;
+ }
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded) th[scope="row"],
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded) thead th:first-child{
+  width:185px;
+  min-width:185px;
+  max-width:185px;
+ }
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded) .year-total-header,
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded) .employee-year-total,
+ .table-wrap > .grot-unified-year:not(.grot-daily-expanded) .year-grand-total{
+  width:90px;
+  min-width:90px;
+ }
+}
