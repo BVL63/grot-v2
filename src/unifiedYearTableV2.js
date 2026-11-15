@@ -228,7 +228,7 @@ function renderDetailedYearTable(view,month){
        '" aria-label="Отпуск '+esc(row.name)+' '+dateText(date)+'">●</button>':'')+'</td>';
    }).join('');
   }).join('');
-  return '<tr class="daily-employee-row"><th scope="row" title="'+esc(row.name)+'">'+
+  return '<tr class="daily-employee-row"><th scope="row" data-staff-id="'+esc(row.id)+'" title="Открыть отпуска: '+esc(row.name)+'">'+
    esc(row.shortName||shortStaffName(row))+'</th>'+dayCells+
    '<td class="employee-year-total">'+(totals.byStaff[index].total||'')+'</td></tr>';
  }).join('');
@@ -248,7 +248,7 @@ export function renderUnifiedYearTable(view,{expandedMonth=null}={}){
   const lanes=monthLanes(row);
   const sum=totals.byStaff[index].total;
   return lanes.map((lane,i)=>'<tr class="vacation-lane '+(lanes.length===1?'lane-single':i===0?'lane-first':i===lanes.length-1?'lane-last':'lane-middle')+'">'+
-   (i===0?'<th scope="row" rowspan="'+lanes.length+'" title="'+esc(row.name)+'">'+esc(row.shortName||shortStaffName(row))+'</th>':'')+
+   (i===0?'<th scope="row" rowspan="'+lanes.length+'" data-staff-id="'+esc(row.id)+'" title="Открыть отпуска: '+esc(row.name)+'">'+esc(row.shortName||shortStaffName(row))+'</th>':'')+
    renderLane(lane)+
    (i===0?'<td class="employee-year-total" rowspan="'+lanes.length+'">'+(sum||'')+'</td>':'')+
    '</tr>').join('');
