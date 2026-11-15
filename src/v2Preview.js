@@ -3,7 +3,8 @@ import {addVacationPeriod,editVacationPeriod,removeVacationPeriod} from './vacat
 import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
 import {queryVacationAudit} from './v2AuditJournal.js';
-import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays} from './periodCalendarV2.js';
+import {renderRangeCalendar,shiftMonth,vacationDays,endDateForDays,setProductionCalendars} from './periodCalendarV2.js';
+import {parseProductionCalendarFile,productionCalendarExample} from './productionCalendarV2.js';
 import {DRAFT_KEY,parseLocalDraft,makeLocalDraft} from './localDraftV2.js';
 import {validateStructure,fillMissingStructureCodes,structureRows,structurePath,staffForStructure,upsertStructure,upsertStaff,unassignedStaff,assignStaffToStructure,selectDepartmentGraph} from './organizationDirectoryV2.js';
 import {displayDate,parseDisplayDate,displayTimestamp} from './dateDisplayV2.js';
@@ -35,11 +36,12 @@ let year=2027,selected=null,dirty=false,loadedSource='Демонстрацион
 let selectedGraphId='';
 let expandedMonth=null;
 let charts=[];
+let productionCalendars={};
 let originalImport=null,importReport='',historyReview=null;
 let localSaveStatus='Локальное сохранение не проверено';
 function persistDraft(){
  try{
-  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,structure,charts,year,source:loadedSource,dirty}));
+  localStorage.setItem(DRAFT_KEY,makeLocalDraft({staff,records,structure,charts,productionCalendars,year,source:loadedSource,dirty}));
   localSaveStatus='Автосохранение на этом устройстве';
  }catch(err){
   localSaveStatus='Автосохранение недоступно — сохраните файл';
@@ -49,13 +51,14 @@ function restoreDraftAtStartup(){
  try{
   const draft=parseLocalDraft(localStorage.getItem(DRAFT_KEY));
   if(!draft){localSaveStatus='Локальная копия отсутствует';return;}
-  staff=draft.staff;records=draft.records;structure=draft.structure||[];charts=draft.charts||[];year=draft.year;
+  staff=draft.staff;records=draft.records;structure=draft.structure||[];charts=draft.charts||[];productionCalendars=draft.productionCalendars||{};year=draft.year;
   loadedSource=draft.source;dirty=draft.dirty;
   localSaveStatus='Восстановлено с этого устройства'+(draft.savedAt?' · '+new Date(draft.savedAt).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
   importReport='Автоматически восстановлена локальная копия. Рекомендуется также сохранять резервный файл.';
  }catch{localSaveStatus='Локальное сохранение недоступно';}
 }
 restoreDraftAtStartup();
+setProductionCalendars(productionCalendars);
 const q=selector=>root.querySelector(selector);
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -93,6 +96,7 @@ function draw(){
     <details class="v2-nav-item"><summary>Сервис</summary><div class="v2-nav-panel">
       <button type="button" id="v2-import">Восстановить данные</button>
       <button type="button" id="v2-export">Сохранить данные</button>
+      <button type="button" id="v2-calendar-import-open">Производственный календарь</button>
       <button type="button" id="v2-audit-open">Журнал изменений</button>
       <button type="button" id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
       <button type="button" id="v2-reload">Обновить</button>
@@ -102,6 +106,7 @@ function draw(){
    <div class="v2-graph-summary">Сотрудников: ${graph.staff.length} · Периодов за ${year} год: ${graph.records.filter(r=>Number(r.year)===year).length}</div>
    <div class="v2-save-indicator" title="${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}"><span>${escapeHtml(loadedSource)} · ${dirty?'нет свежей файловой копии':'файловая копия актуальна'} · ${escapeHtml(localSaveStatus)}</span></div>
    <input id="v2-file" type="file" accept=".json,application/json" hidden>
+   <input id="v2-production-file" type="file" accept=".json,.csv,application/json,text/csv,text/plain" hidden>
    <p id="v2-import-report" role="status">${escapeHtml(importReport)}</p>
    ${historyReview?`<div class="warning"><p>Встроенная история 2026: ${historyReview.total} периодов, сопоставлено по фамилии: ${historyReview.matched}, не сопоставлено: ${historyReview.unresolved}. Даты требуют проверки; это не подтверждённый факт отпуска.</p><button type="button" id="v2-stage-history">Добавить историю 2026 в тестовую копию</button></div>`:''}
    <div class="chart-selector"><label>График <select id="v2-chart"><option value="">Общий график</option>${chartOptions}</select></label>
@@ -115,6 +120,23 @@ function draw(){
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
    <button type="button" role="menuitem" id="v2-menu-delete">Удалить</button>
   </div>
+  <dialog id="v2-production-dialog" class="v2-production-dialog">
+   <div class="directory-heading"><h2>Производственный календарь</h2><button type="button" id="v2-production-close">Закрыть</button></div>
+   <p>Загрузка календаря по годам. Действующий график отпусков не заменяется.</p>
+   <label>Год <select id="v2-production-year">${years.map(y=>'<option value="'+y+'"'+(y===year?' selected':'')+'>'+y+'</option>').join('')}</select></label>
+   <p id="v2-production-current" class="muted"></p>
+   <p class="muted">Формат JSON или CSV (дата;тип). Типы: <strong>праздник</strong>, <strong>выходной</strong>, <strong>рабочий</strong>. Праздники исключаются из длительности отпуска, а перенесённые выходные — нет.</p>
+   <div class="directory-pick-footer">
+    <button type="button" id="v2-production-choose">Загрузить файл</button>
+    <button type="button" id="v2-production-template">Образец JSON</button>
+   </div>
+   <div id="v2-production-preview" class="v2-production-preview" aria-live="polite"></div>
+   <p id="v2-production-error" role="alert"></p>
+   <div class="directory-pick-footer">
+    <button type="button" id="v2-production-apply" disabled>Применить календарь</button>
+    <button type="button" id="v2-production-remove">Очистить загруженный</button>
+   </div>
+  </dialog>
   <dialog id="v2-chart-dialog">
    <div class="directory-heading"><h2 id="v2-chart-title">Состав графика</h2><button type="button" id="v2-chart-close">Закрыть</button></div>
    <label class="chart-name-label">Наименование графика <input id="v2-chart-name" type="text" maxlength="110" placeholder="Например, Водители — группы" required></label>
@@ -271,6 +293,60 @@ function draw(){
  q('#v2-import').onclick=()=>q('#v2-file').click();
  q('#v2-file').onchange=importJson;
  q('#v2-export').onclick=exportJson;
+ let productionPending=null;
+ const productionDialog=q('#v2-production-dialog');
+ const productionYear=q('#v2-production-year');
+ const renderProductionState=()=>{
+  const current=productionCalendars[productionYear.value];
+  q('#v2-production-current').textContent=current
+   ?'Загружен календарь '+current.year+': праздничных '+current.holidays.length+
+    ', дополнительных выходных '+current.daysOff.length+
+    ', рабочих выходных '+current.workingWeekends.length
+   :'Для '+productionYear.value+' года загруженный календарь отсутствует. Применяются базовые праздничные дни РФ.';
+  q('#v2-production-remove').disabled=!current;
+ };
+ q('#v2-calendar-import-open').onclick=()=>{
+  productionPending=null;
+  q('#v2-production-preview').textContent='';
+  q('#v2-production-error').textContent='';
+  q('#v2-production-apply').disabled=true;
+  productionYear.value=String(year);renderProductionState();productionDialog.showModal();
+ };
+ productionYear.onchange=()=>{productionPending=null;q('#v2-production-preview').textContent='';q('#v2-production-apply').disabled=true;renderProductionState();};
+ q('#v2-production-close').onclick=()=>productionDialog.close();
+ q('#v2-production-choose').onclick=()=>q('#v2-production-file').click();
+ q('#v2-production-template').onclick=()=>downloadJson(productionCalendarExample(Number(productionYear.value)),'Grot_2-calendar-example-'+productionYear.value+'.json');
+ q('#v2-production-file').onchange=async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+   const parsed=parseProductionCalendarFile(await file.text(),file.name,Number(productionYear.value));
+   if(parsed.year!==Number(productionYear.value))throw new Error('Год файла '+parsed.year+' отличается от выбранного '+productionYear.value);
+   productionPending=parsed;
+   q('#v2-production-preview').textContent='Файл: '+file.name+' · Год: '+parsed.year+
+    ' · Праздничных: '+parsed.holidays.length+
+    ' · Выходных: '+parsed.daysOff.length+
+    ' · Рабочих выходных: '+parsed.workingWeekends.length;
+   q('#v2-production-error').textContent='';
+   q('#v2-production-apply').disabled=false;
+  }catch(err){
+   productionPending=null;q('#v2-production-apply').disabled=true;
+   q('#v2-production-error').textContent=err.message;
+  }finally{e.target.value='';}
+ };
+ q('#v2-production-apply').onclick=()=>{
+  if(!productionPending)return;
+  const target=productionPending.year;
+  if(!confirm('Применить календарь '+target+' года? Продолжительность отпусков может пересчитаться, но их даты не изменятся.'))return;
+  productionCalendars={...productionCalendars,[target]:productionPending};
+  setProductionCalendars(productionCalendars);
+  dirty=true;persistDraft();productionDialog.close();draw();
+ };
+ q('#v2-production-remove').onclick=()=>{
+  const target=productionYear.value;if(!productionCalendars[target])return;
+  if(!confirm('Удалить загруженный производственный календарь '+target+' года? Будет использован базовый список праздников.'))return;
+  const updated={...productionCalendars};delete updated[target];productionCalendars=updated;
+  setProductionCalendars(productionCalendars);dirty=true;persistDraft();productionDialog.close();draw();
+ };
  q('#v2-audit-open').onclick=()=>{q('#v2-audit-year').value=String(year);q('#v2-audit-search').value='';renderAudit();q('#v2-audit-dialog').showModal();};
  q('#v2-audit-close').onclick=()=>q('#v2-audit-dialog').close();
  q('#v2-audit-year').onchange=renderAudit;
@@ -866,7 +942,7 @@ async function importJson(e){
    [...(inspected.problems||[]),...(inspected.warnings||[])].join('; ');
   if(!inspected.ok){alert('Импорт не выполнен: '+inspected.problems.join('; '));draw();return;}
   const newRecords=inspected.records,newStaff=inspected.staff;
-  records=newRecords;staff=newStaff;structure=inspected.structure||[];charts=inspected.charts||[];originalImport=inspected.sourceSnapshot;
+  records=newRecords;staff=newStaff;structure=inspected.structure||[];charts=inspected.charts||[];productionCalendars=inspected.productionCalendars||{};setProductionCalendars(productionCalendars);originalImport=inspected.sourceSnapshot;
   historyReview=inspected.bundledHistoryReview||null;
   loadedSource='Проверен файл: '+file.name;
   if(!records.some(r=>Number(r.year)===year))year=records[0]?.year||2027;
@@ -882,7 +958,7 @@ function exportJson(){
  const now=new Date();
  const stamp=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-')+'-'+
   [now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join('');
- downloadJson({schemaVersion:2,staff,records,structure,charts},'Grot_2-backup-'+stamp+'.json');
+ downloadJson({schemaVersion:2,staff,records,structure,charts,productionCalendars},'Grot_2-backup-'+stamp+'.json');
  dirty=false;persistDraft();draw();
 }
 draw();
