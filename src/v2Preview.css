@@ -838,3 +838,26 @@ main{padding-top:0}
  #v2-dialog .calendar-month h3{font-size:12px}
  #v2-dialog .calendar-month{padding:3px}
 }
+
+
+/* Прямое редактирование отпуска из графика — компактная форма с двумя месяцами. */
+#v2-quick-dialog{
+ width:min(720px,96vw);max-height:92dvh;overflow:auto;padding:18px;
+}
+#v2-quick-form{display:flex;flex-direction:column;gap:12px}
+.v2-quick-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.v2-quick-heading h2{margin:0;font-size:19px}
+#v2-quick-x{background:white;color:#21456e;border:1px solid #bacbdf;font-size:23px;padding:2px 12px}
+#v2-quick-employee{font-size:14px;color:#415876;margin:0}
+#v2-quick-dialog .calendar-months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#v2-quick-dialog .calendar-day{height:32px;min-width:0;background:white;color:#1a304b;border:1px solid transparent;border-radius:5px;padding:1px;cursor:pointer}
+#v2-quick-dialog .calendar-day.in-range{background:#d8e9fc}
+#v2-quick-dialog .calendar-day.range-start,#v2-quick-dialog .calendar-day.range-end{background:#225d9a;color:white;font-weight:700}
+#v2-quick-dialog .calendar-day.calendar-day-off:not(.in-range){background:#e5e9f0;color:#a62a2a}
+#v2-quick-dialog .calendar-day.calendar-holiday:not(.in-range){background:#f9e1e7;color:#b7213c}
+#v2-quick-dialog #v2-quick-error{color:#a02727;min-height:1em;margin:0}
+#v2-quick-dialog .calendar-date-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:570px){
+ #v2-quick-dialog .calendar-months{grid-template-columns:1fr}
+ #v2-quick-dialog .calendar-date-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
