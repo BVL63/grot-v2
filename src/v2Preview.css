@@ -861,3 +861,17 @@ main{padding-top:0}
  #v2-quick-dialog .calendar-months{grid-template-columns:1fr}
  #v2-quick-dialog .calendar-date-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Анализ сезонной популярности, КСН */
+#v2-popularity-dialog{width:min(670px,96vw);max-height:88dvh;overflow:auto}
+.v2-popularity-dialog .directory-heading h2{margin:0;font-size:19px}
+.v2-popularity-help{font-size:12px;line-height:1.45;color:#50627a}
+.v2-popularity-scroll{overflow:auto;max-height:58dvh;border:1px solid #d3deeb;border-radius:6px}
+.v2-popularity-table{width:100%;border-collapse:collapse}
+.v2-popularity-table th,.v2-popularity-table td{padding:7px 9px;text-align:center;font-size:13px}
+.v2-popularity-table tbody th{text-align:left;position:static;min-width:100px;background:#f4f7fb}
+.v2-popularity-table thead th{position:sticky;top:0;z-index:1}
+.v2-popularity-table tfoot th,.v2-popularity-table tfoot td{font-weight:700;background:#e5eef9}
+.v2-popularity-table td:last-child{width:34%;min-width:90px}
+.v2-popularity-bar{width:var(--pop-width);height:13px;border-radius:3px;background:#3d78b5}
