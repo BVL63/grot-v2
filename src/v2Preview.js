@@ -1,4 +1,5 @@
 import {buildUnifiedYearView,renderUnifiedYearTable} from './unifiedYearTableV2.js';
+import {calculateSeasonalPopularity} from './seasonalPopularityV2.js';
 import {addVacationPeriod,editVacationPeriod,removeVacationPeriod} from './vacationEditorV2.js';
 import {inspectPreviewImport} from './previewImportV2.js';
 import {stageBundledHistory} from './stageHistoryV2.js';
@@ -98,6 +99,7 @@ function draw(){
       <button type="button" id="v2-export">Сохранить данные</button>
       <button type="button" id="v2-calendar-import-open">Производственный календарь</button>
       <button type="button" id="v2-audit-open">Журнал изменений</button>
+      <button type="button" id="v2-popularity-open">Анализ отпусков · КСН</button>
       <button type="button" id="v2-source" ${originalImport?'':'disabled'}>Исходный JSON</button>
       <button type="button" id="v2-reload">Обновить</button>
     </div></details>
@@ -120,6 +122,17 @@ function draw(){
    <button type="button" role="menuitem" id="v2-menu-edit">Изменить</button>
    <button type="button" role="menuitem" id="v2-menu-delete">Удалить</button>
   </div>
+  <dialog id="v2-popularity-dialog" class="v2-popularity-dialog">
+   <div class="directory-heading"><h2>Популярность месяцев · КСН</h2><button type="button" id="v2-popularity-close">Закрыть</button></div>
+   <p id="v2-popularity-scope" class="muted"></p>
+   <p class="v2-popularity-help">Популярность определяется количеством сотрудников, имеющих отпуск в месяце. Один сотрудник учитывается в каждом месяце один раз, в том числе для переходящих отпусков. Коэффициенты округлены до 0,1, их сумма за год — 12,0.</p>
+   <div class="v2-popularity-scroll"><table class="v2-popularity-table">
+    <thead><tr><th>Месяц</th><th>Сотрудников</th><th>КСН</th><th>Популярность</th></tr></thead>
+    <tbody id="v2-popularity-rows"></tbody>
+    <tfoot><tr><th>Итого</th><td id="v2-popularity-people"></td><td id="v2-popularity-total"></td><td></td></tr></tfoot>
+   </table></div>
+   <p id="v2-popularity-empty" class="muted" hidden>В этом году в выбранном графике отпусков нет. КСН пока не рассчитывается.</p>
+  </dialog>
   <dialog id="v2-production-dialog" class="v2-production-dialog">
    <div class="directory-heading"><h2>Производственный календарь</h2><button type="button" id="v2-production-close">Закрыть</button></div>
    <p>Загрузка календаря по годам. Действующий график отпусков не заменяется.</p>
@@ -295,6 +308,22 @@ function draw(){
   selectedGraphId='';dirty=true;persistDraft();draw();
  };
  q('#v2-chart-close').onclick=()=>q('#v2-chart-dialog').close();
+ q('#v2-popularity-open').onclick=()=>{
+  const result=calculateSeasonalPopularity(year,graph.records,graph.staff);
+  const graphName=selectedGraphId?(charts.find(c=>String(c.id)===selectedGraphId)?.name||'График'):'Общий график';
+  q('#v2-popularity-scope').textContent=year+' · '+graphName;
+  q('#v2-popularity-rows').innerHTML=result.months.map(m=>
+   '<tr><th scope="row">'+escapeHtml(m.name)+'</th>'+
+   '<td>'+m.count+'</td><td>'+(m.coefficient===null?'—':m.coefficient.toFixed(1).replace('.',','))+'</td>'+
+   '<td><div class="v2-popularity-bar" style="--pop-width:'+(
+     result.totalOccurrences?100*m.count/Math.max(...result.counts,1):0)+'%"></div></td></tr>').join('');
+  q('#v2-popularity-people').textContent=String(result.totalOccurrences);
+  q('#v2-popularity-total').textContent=result.coefficients?'12,0':'—';
+  q('#v2-popularity-empty').hidden=!!result.coefficients;
+  q('#v2-popularity-dialog').showModal();
+ };
+ q('#v2-popularity-close').onclick=()=>q('#v2-popularity-dialog').close();
+
  q('#v2-print-graph').onclick=()=>window.print();
  q('#v2-reload').onclick=()=>window.location.reload();
  root.querySelectorAll('.v2-nav-item').forEach(item=>{
